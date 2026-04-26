@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "noctra-script"
+version = "0.1.0"
+description = "Local sequential audio transcription queue with a minimal web UI."
+requires-python = ">=3.12"
+dependencies = [
+  "faster-whisper",
+  "tqdm",
+]
+
+[project.scripts]
+noctra = "main:main"
+
+[tool.setuptools]
+py-modules = ["main"]
