@@ -57,7 +57,7 @@ h1 {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(5, minmax(74px, 1fr));
+  grid-template-columns: repeat(6, minmax(74px, 1fr));
   gap: 10px;
   min-width: min(100%, 360px);
 }
@@ -184,9 +184,17 @@ button:disabled {
   align-items: baseline;
 }
 
+.job-index {
+  min-width: 3.5ch;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
 .job-path {
   word-break: break-all;
   font-weight: 600;
+  flex: 1;
 }
 
 .badge {
@@ -198,6 +206,7 @@ button:disabled {
 }
 
 .pending { color: #854d0e; }
+.paused { color: #7c3aed; }
 .processing { color: #0f766e; }
 .done { color: var(--ok); }
 .failed { color: var(--bad); }

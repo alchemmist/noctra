@@ -41,9 +41,13 @@
     button.addEventListener("click", async function () {
       button.disabled = true;
       try {
-        await postJson("/api/job", { id: jobId, action: action });
+        const data = await postJson("/api/job", { id: jobId, action: action });
         setResult("Готово: " + label.toLowerCase());
-        await refresh();
+        if (data.state) {
+          renderState(data.state);
+        } else {
+          await refresh();
+        }
       } catch (error) {
         setResult("Не удалось выполнить действие: " + error.message, true);
       } finally {
@@ -53,7 +57,7 @@
     return button;
   }
 
-  function renderJob(job) {
+  function renderJob(job, index) {
     const item = document.createElement("div");
     item.className = "job";
 
@@ -66,6 +70,7 @@
     const head = document.createElement("div");
     head.className = "job-head";
     head.innerHTML =
+      '<div class="job-index">#' + String(index + 1) + "</div>" +
       '<div class="job-path">' + escapeHtml(job.path) + "</div>" +
       '<div class="badge ' + escapeHtml(job.status) + '">' + escapeHtml(job.status) + "</div>";
 
@@ -85,6 +90,12 @@
 
     if (job.status === "processing") {
       actions.appendChild(actionButton("Остановить", "cancel", job.id, "danger"));
+      actions.appendChild(actionButton("Удалить", "delete", job.id, "danger"));
+    } else if (job.status === "paused") {
+      actions.appendChild(actionButton("Продолжить", "resume", job.id, "primaryish"));
+      actions.appendChild(actionButton("Удалить", "delete", job.id, "danger"));
+      actions.appendChild(actionButton("Вверх", "move_up", job.id, "primaryish"));
+      actions.appendChild(actionButton("Вниз", "move_down", job.id, "primaryish"));
     } else {
       actions.appendChild(actionButton("Удалить", "delete", job.id, "danger"));
       if (job.status === "pending") {
@@ -108,20 +119,25 @@
       }
 
       const data = await res.json();
-      $("pending").textContent = data.pending;
-      $("processing").textContent = data.processing;
-      $("done").textContent = data.done;
-      $("failed").textContent = data.failed;
-      $("canceled").textContent = data.canceled;
-
-      const queueEl = $("queue");
-      queueEl.innerHTML = "";
-      data.jobs.forEach(function (job) {
-        queueEl.appendChild(renderJob(job));
-      });
+      renderState(data);
     } catch (error) {
       setResult("Не удалось обновить состояние: " + error.message, true);
     }
+  }
+
+  function renderState(data) {
+    $("pending").textContent = data.pending;
+    $("paused").textContent = data.paused;
+    $("processing").textContent = data.processing;
+    $("done").textContent = data.done;
+    $("failed").textContent = data.failed;
+    $("canceled").textContent = data.canceled;
+
+    const queueEl = $("queue");
+    queueEl.innerHTML = "";
+    data.jobs.forEach(function (job, index) {
+      queueEl.appendChild(renderJob(job, index));
+    });
   }
 
   async function enqueue() {

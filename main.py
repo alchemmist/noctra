@@ -152,6 +152,7 @@ class QueueStore:
                 "next_id": self.next_id,
                 "jobs": [asdict(job) for job in self.jobs],
                 "pending": sum(1 for job in self.jobs if job.status == "pending"),
+                "paused": sum(1 for job in self.jobs if job.status == "paused"),
                 "processing": sum(1 for job in self.jobs if job.status == "processing"),
                 "done": sum(1 for job in self.jobs if job.status == "done"),
                 "failed": sum(1 for job in self.jobs if job.status == "failed"),
@@ -215,7 +216,12 @@ class QueueStore:
             for index, job in enumerate(self.jobs):
                 if job.id == job_id:
                     if job.status == "processing":
-                        return False
+                        job.cancel_requested = True
+                        job.status = "canceled"
+                        job.error = ""
+                        self._save_locked()
+                        self.condition.notify_all()
+                        return True
                     del self.jobs[index]
                     self._save_locked()
                     self.condition.notify_all()
@@ -225,12 +231,24 @@ class QueueStore:
     def request_cancel(self, job_id: int) -> bool:
         with self.condition:
             job = self._find(job_id)
-            if job is None:
+            if job is None or job.status not in {"pending", "processing"}:
                 return False
             job.cancel_requested = True
-            if job.status != "processing":
-                job.status = "canceled"
-                job.error = ""
+            job.status = "paused"
+            job.error = ""
+            self._save_locked()
+            self.condition.notify_all()
+            return True
+
+    def request_resume(self, job_id: int) -> bool:
+        with self.condition:
+            job = self._find(job_id)
+            if job is None or job.status != "paused":
+                return False
+            job.cancel_requested = False
+            job.status = "pending"
+            job.error = ""
+            job.progress = 0.0
             self._save_locked()
             self.condition.notify_all()
             return True
@@ -242,7 +260,7 @@ class QueueStore:
                 return False
             job = self.jobs[index]
             if job.status == "processing":
-                return False
+                return True
             if direction == "up":
                 target = index - 1
                 while target >= 0 and self.jobs[target].status == "processing":
@@ -255,7 +273,7 @@ class QueueStore:
                 return False
 
             if target < 0 or target >= len(self.jobs) or target == index:
-                return False
+                return True
 
             self.jobs.insert(target, self.jobs.pop(index))
             self._save_locked()
@@ -367,8 +385,15 @@ class Worker(threading.Thread):
         self.store = store
         self.engine = engine
         self._stop_event = threading.Event()
+        self._current_job_id: int | None = None
+        self._current_lock = threading.Lock()
 
-    def stop(self) -> None:
+    def stop(self, *, graceful: bool = False) -> None:
+        if graceful:
+            with self._current_lock:
+                job_id = self._current_job_id
+            if job_id is not None:
+                self.store.update(job_id, status="paused")
         self._stop_event.set()
         with self.store.condition:
             self.store.condition.notify_all()
@@ -382,6 +407,8 @@ class Worker(threading.Thread):
                 continue
 
             audio_path = job.path_obj
+            with self._current_lock:
+                self._current_job_id = job.id
             try:
                 print(f"Transcribing: {audio_path}")
                 out_file, duration = self.engine.transcribe_file(
@@ -399,15 +426,26 @@ class Worker(threading.Thread):
                 print(f"Done: {out_file}")
             except Exception as exc:
                 if str(exc) == "canceled":
-                    self.store.update(job.id, status="canceled", error="", progress=job.progress)
-                    print(f"Canceled: {audio_path}")
+                    with self.store.condition:
+                        current = next((item for item in self.store.jobs if item.id == job.id), None)
+                        current_status = current.status if current is not None else "canceled"
+                        current_progress = current.progress if current is not None else job.progress
+                    if current_status == "paused":
+                        self.store.update(job.id, status="paused", error="", progress=current_progress)
+                        print(f"Paused: {audio_path}")
+                    else:
+                        self.store.update(job.id, status="canceled", error="", progress=current_progress)
+                        print(f"Canceled: {audio_path}")
                 else:
                     self.store.fail(job.id, str(exc))
                     print(f"Failed: {audio_path} -> {exc}")
+            finally:
+                with self._current_lock:
+                    self._current_job_id = None
 
     def _is_canceled(self, job_id: int) -> bool:
         with self.store.condition:
-            job = self.store._find(job_id)
+            job = next((item for item in self.store.jobs if item.id == job_id), None)
             return bool(job and job.cancel_requested)
 
 
@@ -468,6 +506,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 ok = self.store.remove(job_id)
             elif action == "cancel":
                 ok = self.store.request_cancel(job_id)
+            elif action == "resume":
+                ok = self.store.request_resume(job_id)
             elif action in {"move_up", "move_down"}:
                 ok = self.store.move(job_id, "up" if action == "move_up" else "down")
             else:
@@ -476,7 +516,7 @@ class AppHandler(BaseHTTPRequestHandler):
             if not ok:
                 self._send_json({"error": "action not allowed"}, HTTPStatus.CONFLICT)
                 return
-            self._send_json({"ok": True})
+            self._send_json({"ok": True, "state": self.store.snapshot()})
             return
         self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -517,11 +557,11 @@ def run_headless(files: list[str], args: argparse.Namespace) -> int:
                 break
             time.sleep(1.0)
     except KeyboardInterrupt:
-        worker.stop()
+        worker.stop(graceful=True)
         worker.join(timeout=2.0)
         return 130
 
-    worker.stop()
+    worker.stop(graceful=True)
     worker.join(timeout=2.0)
     return 0
 
@@ -546,7 +586,7 @@ def run_server(files: list[str], args: argparse.Namespace) -> int:
     except KeyboardInterrupt:
         pass
     finally:
-        worker.stop()
+        worker.stop(graceful=True)
         server.shutdown()
         server.server_close()
         worker.join(timeout=2.0)
