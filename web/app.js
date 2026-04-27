@@ -33,30 +33,6 @@
     return text ? JSON.parse(text) : {};
   }
 
-  function actionButton(label, action, jobId, className) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "action " + (className || "");
-    button.textContent = label;
-    button.addEventListener("click", async function () {
-      button.disabled = true;
-      try {
-        const data = await postJson("/api/job", { id: jobId, action: action });
-        setResult("Готово: " + label.toLowerCase());
-        if (data.state) {
-          renderState(data.state);
-        } else {
-          await refresh();
-        }
-      } catch (error) {
-        setResult("Не удалось выполнить действие: " + error.message, true);
-      } finally {
-        button.disabled = false;
-      }
-    });
-    return button;
-  }
-
   function renderJob(job, index) {
     const item = document.createElement("div");
     item.className = "job";
@@ -67,48 +43,31 @@
     if (job.error) meta.push("error: " + escapeHtml(job.error));
     if (job.duration) meta.push("duration: " + job.duration.toFixed(1) + " sec");
 
-    const head = document.createElement("div");
-    head.className = "job-head";
-    head.innerHTML =
+    item.innerHTML =
+      '<div class="job-head">' +
       '<div class="job-index">#' + String(index + 1) + "</div>" +
       '<div class="job-path">' + escapeHtml(job.path) + "</div>" +
-      '<div class="badge ' + escapeHtml(job.status) + '">' + escapeHtml(job.status) + "</div>";
-
-    const metaEl = document.createElement("div");
-    metaEl.className = "meta";
-    metaEl.innerHTML = meta.join("<br>");
-
-    const bar = document.createElement("div");
-    bar.className = "bar";
-    const fill = document.createElement("div");
-    fill.className = "fill";
-    fill.style.width = percent + "%";
-    bar.appendChild(fill);
-
-    const actions = document.createElement("div");
-    actions.className = "actions";
-
-    if (job.status === "processing") {
-      actions.appendChild(actionButton("Остановить", "cancel", job.id, "danger"));
-      actions.appendChild(actionButton("Удалить", "delete", job.id, "danger"));
-    } else if (job.status === "paused") {
-      actions.appendChild(actionButton("Продолжить", "resume", job.id, "primaryish"));
-      actions.appendChild(actionButton("Удалить", "delete", job.id, "danger"));
-      actions.appendChild(actionButton("Вверх", "move_up", job.id, "primaryish"));
-      actions.appendChild(actionButton("Вниз", "move_down", job.id, "primaryish"));
-    } else {
-      actions.appendChild(actionButton("Удалить", "delete", job.id, "danger"));
-      if (job.status === "pending") {
-        actions.appendChild(actionButton("Вверх", "move_up", job.id, "primaryish"));
-        actions.appendChild(actionButton("Вниз", "move_down", job.id, "primaryish"));
-      }
-    }
-
-    item.appendChild(head);
-    item.appendChild(metaEl);
-    item.appendChild(bar);
-    item.appendChild(actions);
+      '<div class="badge ' + escapeHtml(job.status) + '">' + escapeHtml(job.status) + "</div>" +
+      "</div>" +
+      '<div class="meta">' + meta.join("<br>") + "</div>" +
+      '<div class="bar"><div class="fill" style="width:' + percent + '%"></div></div>';
     return item;
+  }
+
+  function renderState(data) {
+    $("pending").textContent = data.pending;
+    $("processing").textContent = data.processing;
+    $("done").textContent = data.done;
+    $("failed").textContent = data.failed;
+    const startButton = $("start-queue");
+    startButton.disabled = Boolean(data.running);
+    startButton.textContent = data.running ? "Запущено" : "Старт";
+
+    const queueEl = $("queue");
+    queueEl.innerHTML = "";
+    data.jobs.forEach(function (job, index) {
+      queueEl.appendChild(renderJob(job, index));
+    });
   }
 
   async function refresh() {
@@ -117,27 +76,10 @@
       if (!res.ok) {
         throw new Error("state request failed (" + res.status + ")");
       }
-
-      const data = await res.json();
-      renderState(data);
+      renderState(await res.json());
     } catch (error) {
       setResult("Не удалось обновить состояние: " + error.message, true);
     }
-  }
-
-  function renderState(data) {
-    $("pending").textContent = data.pending;
-    $("paused").textContent = data.paused;
-    $("processing").textContent = data.processing;
-    $("done").textContent = data.done;
-    $("failed").textContent = data.failed;
-    $("canceled").textContent = data.canceled;
-
-    const queueEl = $("queue");
-    queueEl.innerHTML = "";
-    data.jobs.forEach(function (job, index) {
-      queueEl.appendChild(renderJob(job, index));
-    });
   }
 
   async function enqueue() {
@@ -169,11 +111,21 @@
     }
   }
 
+  async function startQueue() {
+    const data = await postJson("/api/control", { action: "start" });
+    if (data.state) {
+      renderState(data.state);
+    } else {
+      await refresh();
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     $("enqueue").addEventListener("click", enqueue);
-    $("clear").addEventListener("click", function () {
-      $("paths").value = "";
-      $("paths").focus();
+    $("start-queue").addEventListener("click", function () {
+      startQueue().catch(function (error) {
+        setResult("Не удалось запустить очередь: " + error.message, true);
+      });
     });
 
     refresh();

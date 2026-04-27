@@ -156,7 +156,18 @@ class QueueStore:
                 """
             )
             self.conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
+                """
+            )
+            self.conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_jobs_status_order ON jobs(status, queue_order)"
+            )
+            self.conn.execute(
+                "INSERT OR IGNORE INTO settings(key, value) VALUES ('queue_running', '0')"
             )
 
     def _migrate_legacy_json(self) -> None:
@@ -206,6 +217,40 @@ class QueueStore:
 
     def _now(self) -> float:
         return time.time()
+
+    def _get_setting_locked(self, key: str, default: str = "") -> str:
+        row = self.conn.execute(
+            "SELECT value FROM settings WHERE key = ?",
+            (key,),
+        ).fetchone()
+        if row is None:
+            return default
+        return str(row["value"])
+
+    def _set_setting_locked(self, key: str, value: str) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO settings(key, value)
+            VALUES(?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+            (key, value),
+        )
+
+    def _queue_running_locked(self) -> bool:
+        return self._get_setting_locked("queue_running", "0") == "1"
+
+    def start_queue(self) -> None:
+        with self.condition:
+            self._set_setting_locked("queue_running", "1")
+            self.conn.commit()
+            self.condition.notify_all()
+
+    def stop_queue(self) -> None:
+        with self.condition:
+            self._set_setting_locked("queue_running", "0")
+            self.conn.commit()
+            self.condition.notify_all()
 
     def _job_from_row(self, row: sqlite3.Row) -> Job:
         return Job(
@@ -325,6 +370,7 @@ class QueueStore:
             counts = self._counts_locked()
             return {
                 "next_id": self._next_order_locked(),
+                "running": self._queue_running_locked(),
                 "jobs": jobs,
                 **counts,
             }
@@ -385,6 +431,8 @@ class QueueStore:
 
     def claim_next(self) -> Job | None:
         with self.condition:
+            if not self._queue_running_locked():
+                return None
             row = self.conn.execute(
                 """
                 SELECT id, path, queue_order, status, text_path, error, progress, duration,
@@ -495,6 +543,8 @@ class QueueStore:
 
     def move(self, job_id: int, direction: str) -> bool:
         with self.condition:
+            if self._queue_running_locked():
+                return False
             jobs = self._ordered_jobs_locked()
             index = next((i for i, job in enumerate(jobs) if job.id == job_id), None)
             if index is None:
@@ -665,6 +715,7 @@ class Worker(threading.Thread):
                 job_id = self._current_job_id
             if job_id is not None:
                 self.store.update(job_id, status="paused")
+            self.store.stop_queue()
         self._stop_event.set()
         with self.store.condition:
             self.store.condition.notify_all()
@@ -765,21 +816,15 @@ class AppHandler(BaseHTTPRequestHandler):
             result = self.store.enqueue([str(p) for p in paths])
             self._send_json(result)
             return
-        if parsed.path == "/api/job":
+        if parsed.path == "/api/control":
             payload = self._read_json()
-            job_id = payload.get("id")
             action = payload.get("action")
-            if not isinstance(job_id, int) or not isinstance(action, str):
+            if not isinstance(action, str):
                 self._send_json({"error": "invalid payload"}, HTTPStatus.BAD_REQUEST)
                 return
-            if action == "delete":
-                ok = self.store.remove(job_id)
-            elif action == "cancel":
-                ok = self.store.request_cancel(job_id)
-            elif action == "resume":
-                ok = self.store.request_resume(job_id)
-            elif action in {"move_up", "move_down"}:
-                ok = self.store.move(job_id, "up" if action == "move_up" else "down")
+            if action == "start":
+                self.store.start_queue()
+                ok = True
             else:
                 self._send_json({"error": "unknown action"}, HTTPStatus.BAD_REQUEST)
                 return
@@ -807,6 +852,7 @@ class AppHandler(BaseHTTPRequestHandler):
 
 def run_headless(files: list[str], args: argparse.Namespace) -> int:
     store = QueueStore(STATE_FILE)
+    store.start_queue()
     result = store.enqueue(files)
     if result["added"]:
         print(f"Queued: {len(result['added'])}")
@@ -838,6 +884,7 @@ def run_headless(files: list[str], args: argparse.Namespace) -> int:
 
 def run_server(files: list[str], args: argparse.Namespace) -> int:
     store = QueueStore(STATE_FILE)
+    store.stop_queue()
     if files:
         result = store.enqueue(files)
         if result["added"]:

@@ -12,17 +12,14 @@
       <div>
         <h1>Noctra Script</h1>
         <div class="subtitle">
-          Добавляйте пути к аудиофайлам или папкам. Очередь обрабатывается по одному файлу, а `.txt` сохраняется рядом
-          с исходным аудио.
+          Добавляйте пути к аудиофайлам или папкам, затем запускайте очередь одной кнопкой.
         </div>
       </div>
       <div class="stats">
         <div class="stat"><span class="num" id="pending">0</span><span class="label">pending</span></div>
-        <div class="stat"><span class="num" id="paused">0</span><span class="label">paused</span></div>
         <div class="stat"><span class="num" id="processing">0</span><span class="label">processing</span></div>
         <div class="stat"><span class="num" id="done">0</span><span class="label">done</span></div>
         <div class="stat"><span class="num" id="failed">0</span><span class="label">failed</span></div>
-        <div class="stat"><span class="num" id="canceled">0</span><span class="label">canceled</span></div>
       </div>
     </header>
 
@@ -33,9 +30,9 @@
           <textarea id="paths" placeholder="/home/user/audio1.m4a&#10;/home/user/audio2.mp3&#10;/home/user/folder-with-audio"></textarea>
           <div class="row">
             <button class="primary" id="enqueue" type="button">Добавить</button>
-            <button class="secondary" id="clear" type="button">Очистить</button>
+            <button class="primary" id="start-queue" type="button">Старт</button>
           </div>
-          <div class="hint">Поддерживаются и файлы, и папки. Папки сканируются рекурсивно.</div>
+          <div class="hint">Поддерживаются и файлы, и папки. После старта очередь идет сама.</div>
           <div class="footer-note" id="result"></div>
         </div>
       </section>

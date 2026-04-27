@@ -12,9 +12,7 @@
   --shadow: 0 18px 60px rgba(0, 0, 0, 0.08);
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -57,9 +55,9 @@ h1 {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(6, minmax(74px, 1fr));
+  grid-template-columns: repeat(4, minmax(74px, 1fr));
   gap: 10px;
-  min-width: min(100%, 360px);
+  min-width: min(100%, 320px);
 }
 
 .stat {
@@ -165,6 +163,11 @@ button:disabled {
   font-size: 13px;
 }
 
+.hint.subtle {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
 .queue {
   display: grid;
   gap: 10px;
@@ -206,7 +209,6 @@ button:disabled {
 }
 
 .pending { color: #854d0e; }
-.paused { color: #7c3aed; }
 .processing { color: #0f766e; }
 .done { color: var(--ok); }
 .failed { color: var(--bad); }
@@ -215,32 +217,6 @@ button:disabled {
   margin-top: 8px;
   color: var(--muted);
   font-size: 13px;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.action {
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: rgba(23, 23, 23, 0.05);
-  color: var(--text);
-  font-size: 13px;
-}
-
-.action.danger {
-  background: rgba(185, 28, 28, 0.08);
-  color: var(--bad);
-}
-
-.action.primaryish {
-  background: rgba(15, 118, 110, 0.10);
-  color: var(--accent-2);
 }
 
 .bar {
