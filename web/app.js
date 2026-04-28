@@ -120,11 +120,26 @@
     }
   }
 
+  async function clearAll() {
+    const data = await postJson("/api/control", { action: "clear" });
+    setResult("Очередь очищена.");
+    if (data.state) {
+      renderState(data.state);
+    } else {
+      await refresh();
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     $("enqueue").addEventListener("click", enqueue);
     $("start-queue").addEventListener("click", function () {
       startQueue().catch(function (error) {
         setResult("Не удалось запустить очередь: " + error.message, true);
+      });
+    });
+    $("clear-all").addEventListener("click", function () {
+      clearAll().catch(function (error) {
+        setResult("Не удалось очистить очередь: " + error.message, true);
       });
     });
 

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sqlite3
 import threading
 import time
 from dataclasses import dataclass, asdict
@@ -28,8 +27,6 @@ DEFAULT_DEVICE = "cpu"
 DEFAULT_COMPUTE_TYPE = "int8"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8787
-STATE_FILE = Path(".noctra_queue.sqlite3")
-LEGACY_STATE_FILE = Path(".noctra_queue.json")
 WEB_DIR = Path(__file__).with_name("web")
 
 MIME_TYPES = {
@@ -105,197 +102,62 @@ class Job:
 
 
 class QueueStore:
-    def __init__(self, db_file: Path):
-        self.db_file = db_file
+    def __init__(self):
         self.lock = threading.Lock()
         self.condition = threading.Condition(self.lock)
-        self.conn = sqlite3.connect(self.db_file, check_same_thread=False)
-        self.conn.row_factory = sqlite3.Row
-        self.conn.execute("PRAGMA journal_mode=DELETE")
-        self.conn.execute("PRAGMA synchronous=FULL")
-        self._init_schema()
-        self._migrate_legacy_json()
-
-    def _init_schema(self) -> None:
-        with self.conn:
-            self.conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS jobs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    path TEXT NOT NULL UNIQUE,
-                    queue_order INTEGER NOT NULL UNIQUE,
-                    status TEXT NOT NULL,
-                    text_path TEXT NOT NULL DEFAULT '',
-                    error TEXT NOT NULL DEFAULT '',
-                    progress REAL NOT NULL DEFAULT 0.0,
-                    duration REAL NOT NULL DEFAULT 0.0,
-                    cancel_requested INTEGER NOT NULL DEFAULT 0,
-                    source_dir TEXT NOT NULL DEFAULT '',
-                    created_at REAL NOT NULL,
-                    updated_at REAL NOT NULL
-                )
-                """
-            )
-            self.conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS scanned_dirs (
-                    path TEXT PRIMARY KEY,
-                    mtime_ns INTEGER NOT NULL,
-                    scanned_at REAL NOT NULL
-                )
-                """
-            )
-            self.conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS dir_files (
-                    dir_path TEXT NOT NULL,
-                    file_path TEXT NOT NULL UNIQUE,
-                    file_mtime_ns INTEGER NOT NULL,
-                    PRIMARY KEY (dir_path, file_path)
-                )
-                """
-            )
-            self.conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS settings (
-                    key TEXT PRIMARY KEY,
-                    value TEXT NOT NULL
-                )
-                """
-            )
-            self.conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_jobs_status_order ON jobs(status, queue_order)"
-            )
-            self.conn.execute(
-                "INSERT OR IGNORE INTO settings(key, value) VALUES ('queue_running', '0')"
-            )
-
-    def _migrate_legacy_json(self) -> None:
-        if not LEGACY_STATE_FILE.exists():
-            return
-        with self.condition:
-            count = self.conn.execute("SELECT COUNT(*) AS count FROM jobs").fetchone()["count"]
-            if count:
-                return
-            try:
-                data = json.loads(LEGACY_STATE_FILE.read_text(encoding="utf-8"))
-            except Exception:
-                return
-
-            raw_jobs = data.get("jobs", [])
-            now = time.time()
-            order = 1
-            for raw in raw_jobs:
-                status = raw.get("status", "pending")
-                if status == "processing":
-                    status = "pending"
-                path = str(raw["path"])
-                self.conn.execute(
-                    """
-                    INSERT OR IGNORE INTO jobs (
-                        path, queue_order, status, text_path, error, progress, duration,
-                        cancel_requested, source_dir, created_at, updated_at
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        path,
-                        order,
-                        status,
-                        str(raw.get("text_path", "")),
-                        str(raw.get("error", "")),
-                        float(raw.get("progress", 0.0)),
-                        float(raw.get("duration", 0.0)),
-                        int(bool(raw.get("cancel_requested", False))),
-                        str(Path(path).parent),
-                        now,
-                        now,
-                    ),
-                )
-                order += 1
-            self.conn.commit()
+        self.jobs: list[Job] = []
+        self._next_job_id = 1
+        self._next_order = 1
+        self._queue_running = False
+        self._clear_requested = False
+        self._directory_cache: dict[str, tuple[int, list[tuple[Path, str]]]] = {}
 
     def _now(self) -> float:
         return time.time()
 
-    def _get_setting_locked(self, key: str, default: str = "") -> str:
-        row = self.conn.execute(
-            "SELECT value FROM settings WHERE key = ?",
-            (key,),
-        ).fetchone()
-        if row is None:
-            return default
-        return str(row["value"])
-
-    def _set_setting_locked(self, key: str, value: str) -> None:
-        self.conn.execute(
-            """
-            INSERT INTO settings(key, value)
-            VALUES(?, ?)
-            ON CONFLICT(key) DO UPDATE SET value = excluded.value
-            """,
-            (key, value),
-        )
-
     def _queue_running_locked(self) -> bool:
-        return self._get_setting_locked("queue_running", "0") == "1"
+        return self._queue_running
 
     def start_queue(self) -> None:
         with self.condition:
-            self._set_setting_locked("queue_running", "1")
-            self.conn.commit()
+            self._queue_running = True
+            self._clear_requested = False
             self.condition.notify_all()
 
     def stop_queue(self) -> None:
         with self.condition:
-            self._set_setting_locked("queue_running", "0")
-            self.conn.commit()
+            self._queue_running = False
             self.condition.notify_all()
 
-    def _job_from_row(self, row: sqlite3.Row) -> Job:
-        return Job(
-            id=int(row["id"]),
-            path=str(row["path"]),
-            queue_order=int(row["queue_order"]),
-            status=str(row["status"]),
-            text_path=str(row["text_path"]),
-            error=str(row["error"]),
-            progress=float(row["progress"]),
-            duration=float(row["duration"]),
-            cancel_requested=bool(row["cancel_requested"]),
-            source_dir=str(row["source_dir"]),
-        )
-
     def _job_dicts_locked(self) -> list[dict[str, Any]]:
-        rows = self.conn.execute(
-            """
-            SELECT id, path, queue_order, status, text_path, error, progress, duration,
-                   cancel_requested, source_dir
-            FROM jobs
-            ORDER BY queue_order ASC, id ASC
-            """
-        ).fetchall()
-        return [asdict(self._job_from_row(row)) for row in rows]
+        jobs = sorted(self.jobs, key=lambda job: (job.queue_order, job.id))
+        return [asdict(job) for job in jobs]
 
     def _counts_locked(self) -> dict[str, int]:
         counts = {
             "pending": 0,
-            "paused": 0,
             "processing": 0,
             "done": 0,
             "failed": 0,
             "canceled": 0,
         }
-        rows = self.conn.execute(
-            "SELECT status, COUNT(*) AS count FROM jobs GROUP BY status"
-        ).fetchall()
-        for row in rows:
-            counts[str(row["status"])] = int(row["count"])
+        for job in self.jobs:
+            counts[job.status] = counts.get(job.status, 0) + 1
         return counts
 
     def _next_order_locked(self) -> int:
-        row = self.conn.execute("SELECT COALESCE(MAX(queue_order), 0) AS max_order FROM jobs").fetchone()
-        return int(row["max_order"]) + 1
+        return self._next_order
+
+    def _next_job_id_locked(self) -> int:
+        job_id = self._next_job_id
+        self._next_job_id += 1
+        return job_id
+
+    def _find_locked(self, job_id: int) -> Job | None:
+        for job in self.jobs:
+            if job.id == job_id:
+                return job
+        return None
 
     def _expand_raw_paths_locked(self, raw_paths: list[str]) -> tuple[list[tuple[Path, str]], list[str]]:
         expanded: list[tuple[Path, str]] = []
@@ -320,48 +182,15 @@ class QueueStore:
             mtime_ns = directory.stat().st_mtime_ns
         except FileNotFoundError:
             return []
-
-        row = self.conn.execute(
-            "SELECT mtime_ns FROM scanned_dirs WHERE path = ?",
-            (str(directory),),
-        ).fetchone()
-        if row is not None and int(row["mtime_ns"]) == mtime_ns:
-            cached = self.conn.execute(
-                "SELECT file_path FROM dir_files WHERE dir_path = ? ORDER BY file_path ASC",
-                (str(directory),),
-            ).fetchall()
-            if cached:
-                return [(Path(item["file_path"]), str(directory)) for item in cached]
+        cached = self._directory_cache.get(str(directory))
+        if cached is not None and cached[0] == mtime_ns:
+            return cached[1]
 
         files: list[tuple[Path, str]] = []
         for child in sorted(directory.rglob("*")):
             if child.is_file() and child.suffix.lower() in AUDIO_EXTENSIONS:
                 files.append((child.resolve(), str(directory)))
-
-        now = self._now()
-        self.conn.execute(
-            """
-            INSERT INTO scanned_dirs(path, mtime_ns, scanned_at)
-            VALUES(?, ?, ?)
-            ON CONFLICT(path) DO UPDATE SET
-                mtime_ns = excluded.mtime_ns,
-                scanned_at = excluded.scanned_at
-            """,
-            (str(directory), mtime_ns, now),
-        )
-        self.conn.execute("DELETE FROM dir_files WHERE dir_path = ?", (str(directory),))
-        for file_path, _source_dir in files:
-            try:
-                file_mtime_ns = file_path.stat().st_mtime_ns
-            except FileNotFoundError:
-                file_mtime_ns = mtime_ns
-            self.conn.execute(
-                """
-                INSERT OR REPLACE INTO dir_files(dir_path, file_path, file_mtime_ns)
-                VALUES (?, ?, ?)
-                """,
-                (str(directory), str(file_path), file_mtime_ns),
-            )
+        self._directory_cache[str(directory)] = (mtime_ns, files)
         return files
 
     def snapshot(self) -> dict[str, Any]:
@@ -380,11 +209,7 @@ class QueueStore:
             expanded, missing = self._expand_raw_paths_locked(raw_paths)
             added: list[dict[str, Any]] = []
             skipped: list[str] = []
-            known_paths = {
-                str(row["path"])
-                for row in self.conn.execute("SELECT path FROM jobs").fetchall()
-            }
-            seen = set(known_paths)
+            seen = {job.path for job in self.jobs}
             queue_order = self._next_order_locked()
             now = self._now()
 
@@ -393,69 +218,44 @@ class QueueStore:
                 if path_str in seen:
                     skipped.append(path_str)
                     continue
-                self.conn.execute(
-                    """
-                    INSERT INTO jobs (
-                        path, queue_order, status, text_path, error, progress, duration,
-                        cancel_requested, source_dir, created_at, updated_at
-                    )
-                    VALUES (?, ?, 'pending', ?, '', 0.0, 0.0, 0, ?, ?, ?)
-                    """,
-                    (
-                        path_str,
-                        queue_order,
-                        str(output_path_for(path)),
-                        source_dir,
-                        now,
-                        now,
-                    ),
+                job = Job(
+                    id=self._next_job_id_locked(),
+                    path=path_str,
+                    queue_order=queue_order,
+                    status="pending",
+                    text_path=str(output_path_for(path)),
+                    error="",
+                    progress=0.0,
+                    duration=0.0,
+                    cancel_requested=False,
+                    source_dir=source_dir,
                 )
-                job_row = self.conn.execute(
-                    """
-                    SELECT id, path, queue_order, status, text_path, error, progress, duration,
-                           cancel_requested, source_dir
-                    FROM jobs
-                    WHERE path = ?
-                    """,
-                    (path_str,),
-                ).fetchone()
-                if job_row is not None:
-                    added.append(asdict(self._job_from_row(job_row)))
+                self.jobs.append(job)
+                added.append(asdict(job))
                 seen.add(path_str)
                 queue_order += 1
-
-            self.conn.commit()
             self.condition.notify_all()
+
+            self._next_order = queue_order
 
         return {"added": added, "skipped": skipped, "missing": missing}
 
     def claim_next(self) -> Job | None:
         with self.condition:
-            if not self._queue_running_locked():
+            if not self._queue_running_locked() or self._clear_requested:
                 return None
-            row = self.conn.execute(
-                """
-                SELECT id, path, queue_order, status, text_path, error, progress, duration,
-                       cancel_requested, source_dir
-                FROM jobs
-                WHERE status = 'pending' AND cancel_requested = 0
-                ORDER BY queue_order ASC, id ASC
-                LIMIT 1
-                """
-            ).fetchone()
-            if row is None:
-                return None
-            now = self._now()
-            self.conn.execute(
-                """
-                UPDATE jobs
-                SET status = 'processing', error = '', progress = 0.0, updated_at = ?
-                WHERE id = ?
-                """,
-                (now, int(row["id"])),
+            job = next(
+                (
+                    item
+                    for item in sorted(self.jobs, key=lambda item: (item.queue_order, item.id))
+                    if item.status == "pending" and not item.cancel_requested
+                ),
+                None,
             )
-            self.conn.commit()
-            job = self._job_from_row(row)
+            if job is None:
+                if not any(item.status in {"pending", "processing"} for item in self.jobs):
+                    self._queue_running = False
+                return None
             job.status = "processing"
             job.error = ""
             job.progress = 0.0
@@ -466,19 +266,8 @@ class QueueStore:
             existing = self._find_locked(job_id)
             if existing is None:
                 return
-            assignments: list[str] = []
-            values: list[Any] = []
             for key, value in changes.items():
-                assignments.append(f"{key} = ?")
-                values.append(value)
-            assignments.append("updated_at = ?")
-            values.append(self._now())
-            values.append(job_id)
-            self.conn.execute(
-                f"UPDATE jobs SET {', '.join(assignments)} WHERE id = ?",
-                values,
-            )
-            self.conn.commit()
+                setattr(existing, key, value)
 
     def complete(self, job_id: int, *, progress: float = 1.0) -> None:
         self.update(job_id, status="done", progress=progress, error="")
@@ -486,132 +275,28 @@ class QueueStore:
     def fail(self, job_id: int, error: str) -> None:
         self.update(job_id, status="failed", error=error)
 
-    def remove(self, job_id: int) -> bool:
+    def clear_all(self) -> None:
         with self.condition:
-            job = self._find_locked(job_id)
-            if job is None:
-                return False
-            if job.status == "processing":
-                self.conn.execute(
-                    """
-                    UPDATE jobs
-                    SET cancel_requested = 1, status = 'canceled', error = '', updated_at = ?
-                    WHERE id = ?
-                    """,
-                    (self._now(), job_id),
-                )
-            else:
-                self.conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
-            self.conn.commit()
+            self._clear_requested = True
+            self._queue_running = False
+            self.jobs.clear()
             self.condition.notify_all()
-            return True
 
     def request_cancel(self, job_id: int) -> bool:
         with self.condition:
             job = self._find_locked(job_id)
             if job is None or job.status not in {"pending", "processing"}:
                 return False
-            self.conn.execute(
-                """
-                UPDATE jobs
-                SET cancel_requested = 1, status = 'paused', error = '', updated_at = ?
-                WHERE id = ?
-                """,
-                (self._now(), job_id),
-            )
-            self.conn.commit()
+            job.cancel_requested = True
+            job.status = "canceled"
+            job.error = ""
             self.condition.notify_all()
             return True
 
-    def request_resume(self, job_id: int) -> bool:
+    def should_cancel(self, job_id: int) -> bool:
         with self.condition:
             job = self._find_locked(job_id)
-            if job is None or job.status != "paused":
-                return False
-            self.conn.execute(
-                """
-                UPDATE jobs
-                SET cancel_requested = 0, status = 'pending', error = '', progress = 0.0,
-                    updated_at = ?
-                WHERE id = ?
-                """,
-                (self._now(), job_id),
-            )
-            self.conn.commit()
-            self.condition.notify_all()
-            return True
-
-    def move(self, job_id: int, direction: str) -> bool:
-        with self.condition:
-            if self._queue_running_locked():
-                return False
-            jobs = self._ordered_jobs_locked()
-            index = next((i for i, job in enumerate(jobs) if job.id == job_id), None)
-            if index is None:
-                return False
-            job = jobs[index]
-            if job.status == "processing":
-                return True
-            if job.status not in {"pending", "paused", "canceled", "failed", "done"}:
-                return True
-
-            if direction == "up":
-                target = index - 1
-                while target >= 0 and jobs[target].status == "processing":
-                    target -= 1
-            elif direction == "down":
-                target = index + 1
-                while target < len(jobs) and jobs[target].status == "processing":
-                    target += 1
-            else:
-                return False
-
-            if target < 0 or target >= len(jobs) or target == index:
-                return True
-
-            target_job = jobs[target]
-            temp_order = -1
-            now = self._now()
-            self.conn.execute(
-                "UPDATE jobs SET queue_order = ?, updated_at = ? WHERE id = ?",
-                (temp_order, now, target_job.id),
-            )
-            self.conn.execute(
-                "UPDATE jobs SET queue_order = ?, updated_at = ? WHERE id = ?",
-                (target_job.queue_order, now, job.id),
-            )
-            self.conn.execute(
-                "UPDATE jobs SET queue_order = ?, updated_at = ? WHERE id = ?",
-                (job.queue_order, now, target_job.id),
-            )
-            self.conn.commit()
-            self.condition.notify_all()
-            return True
-
-    def _ordered_jobs_locked(self) -> list[Job]:
-        rows = self.conn.execute(
-            """
-            SELECT id, path, queue_order, status, text_path, error, progress, duration,
-                   cancel_requested, source_dir
-            FROM jobs
-            ORDER BY queue_order ASC, id ASC
-            """
-        ).fetchall()
-        return [self._job_from_row(row) for row in rows]
-
-    def _find_locked(self, job_id: int) -> Job | None:
-        row = self.conn.execute(
-            """
-            SELECT id, path, queue_order, status, text_path, error, progress, duration,
-                   cancel_requested, source_dir
-            FROM jobs
-            WHERE id = ?
-            """,
-            (job_id,),
-        ).fetchone()
-        if row is None:
-            return None
-        return self._job_from_row(row)
+            return bool(self._clear_requested or (job is not None and job.cancel_requested))
 
 
 class TranscriptionEngine:
@@ -640,6 +325,9 @@ class TranscriptionEngine:
                         compute_type=self.compute_type,
                     )
         return self._model
+
+    def warm_up(self) -> None:
+        self.model()
 
     def transcribe_file(
         self,
@@ -714,7 +402,7 @@ class Worker(threading.Thread):
             with self._current_lock:
                 job_id = self._current_job_id
             if job_id is not None:
-                self.store.update(job_id, status="paused")
+                self.store.request_cancel(job_id)
             self.store.stop_queue()
         self._stop_event.set()
         with self.store.condition:
@@ -749,14 +437,9 @@ class Worker(threading.Thread):
             except Exception as exc:
                 if str(exc) == "canceled":
                     current = self.store._find_locked(job.id)
-                    current_status = current.status if current is not None else "canceled"
                     current_progress = current.progress if current is not None else job.progress
-                    if current_status == "paused":
-                        self.store.update(job.id, status="paused", error="", progress=current_progress)
-                        print(f"Paused: {audio_path}")
-                    else:
-                        self.store.update(job.id, status="canceled", error="", progress=current_progress)
-                        print(f"Canceled: {audio_path}")
+                    self.store.update(job.id, status="canceled", error="", progress=current_progress)
+                    print(f"Canceled: {audio_path}")
                 else:
                     self.store.fail(job.id, str(exc))
                     print(f"Failed: {audio_path} -> {exc}")
@@ -765,9 +448,7 @@ class Worker(threading.Thread):
                     self._current_job_id = None
 
     def _is_canceled(self, job_id: int) -> bool:
-        with self.store.condition:
-            job = self.store._find_locked(job_id)
-            return bool(job and job.cancel_requested)
+        return self.store.should_cancel(job_id)
 
 
 class AppHandler(BaseHTTPRequestHandler):
@@ -825,6 +506,9 @@ class AppHandler(BaseHTTPRequestHandler):
             if action == "start":
                 self.store.start_queue()
                 ok = True
+            elif action == "clear":
+                self.store.clear_all()
+                ok = True
             else:
                 self._send_json({"error": "unknown action"}, HTTPStatus.BAD_REQUEST)
                 return
@@ -851,7 +535,7 @@ class AppHandler(BaseHTTPRequestHandler):
 
 
 def run_headless(files: list[str], args: argparse.Namespace) -> int:
-    store = QueueStore(STATE_FILE)
+    store = QueueStore()
     store.start_queue()
     result = store.enqueue(files)
     if result["added"]:
@@ -868,7 +552,7 @@ def run_headless(files: list[str], args: argparse.Namespace) -> int:
     try:
         while True:
             state = store.snapshot()
-            pending = state["pending"] + state["paused"] + state["processing"] > 0
+            pending = state["pending"] + state["processing"] > 0
             if not pending:
                 break
             time.sleep(1.0)
@@ -882,8 +566,15 @@ def run_headless(files: list[str], args: argparse.Namespace) -> int:
     return 0
 
 
+def warm_up_model(args: argparse.Namespace) -> int:
+    engine = TranscriptionEngine(args.model, args.device, args.compute_type, args.language)
+    engine.warm_up()
+    print(f"Model ready: {args.model}")
+    return 0
+
+
 def run_server(files: list[str], args: argparse.Namespace) -> int:
-    store = QueueStore(STATE_FILE)
+    store = QueueStore()
     store.stop_queue()
     if files:
         result = store.enqueue(files)
@@ -914,6 +605,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Sequential audio transcription queue with local web UI.")
     parser.add_argument("files", nargs="*", help="Audio files or directories to enqueue.")
     parser.add_argument("--serve", action="store_true", help="Run local web UI and background worker.")
+    parser.add_argument(
+        "--download-model",
+        action="store_true",
+        help="Download and cache the model, then exit.",
+    )
     parser.add_argument("--host", default=DEFAULT_HOST, help=f"Host for web UI, default: {DEFAULT_HOST}")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"Port for web UI, default: {DEFAULT_PORT}")
     parser.add_argument("--model", default=DEFAULT_MODEL, help=f"Whisper model name, default: {DEFAULT_MODEL}")
@@ -930,6 +626,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if args.download_model:
+        return warm_up_model(args)
     files = args.files
     if args.serve or not files:
         return run_server(files, args)
