@@ -36,19 +36,8 @@ MIME_TYPES = {
 }
 
 AUDIO_EXTENSIONS = {
-    ".aac",
-    ".flac",
     ".m4a",
-    ".m4b",
-    ".mka",
-    ".mkv",
     ".mp3",
-    ".mp4",
-    ".ogg",
-    ".opus",
-    ".wav",
-    ".webm",
-    ".wma",
 }
 
 
