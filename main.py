@@ -10,9 +10,13 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
+import logging
 import json
+import os
 import threading
 import time
+import sys
 from dataclasses import dataclass, asdict
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -28,6 +32,8 @@ DEFAULT_COMPUTE_TYPE = "int8"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8787
 WEB_DIR = Path(__file__).with_name("web")
+LOG_DIR = Path(".noctra_logs")
+LOGGER = logging.getLogger("noctra")
 
 MIME_TYPES = {
     ".css": "text/css; charset=utf-8",
@@ -72,6 +78,33 @@ def load_web_asset(name: str) -> tuple[bytes, str]:
     return path.read_bytes(), content_type
 
 
+def setup_logging() -> Path:
+    LOG_DIR.mkdir(exist_ok=True)
+    timestamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_path = LOG_DIR / f"noctra-{timestamp}-{os.getpid()}.log"
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s [%(threadName)s] %(name)s: %(message)s",
+        handlers=[logging.FileHandler(log_path, encoding="utf-8")],
+        force=True,
+    )
+    logging.captureWarnings(True)
+
+    def handle_uncaught(exc_type: type[BaseException], exc: BaseException, tb: Any) -> None:
+        LOGGER.critical("Uncaught exception", exc_info=(exc_type, exc, tb))
+
+    def handle_thread_exception(args: threading.ExceptHookArgs) -> None:
+        LOGGER.critical(
+            "Uncaught thread exception in %s",
+            args.thread.name if args.thread is not None else "unknown",
+            exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
+        )
+
+    sys.excepthook = handle_uncaught
+    threading.excepthook = handle_thread_exception
+    return log_path
+
+
 @dataclass
 class Job:
     id: int
@@ -111,11 +144,13 @@ class QueueStore:
         with self.condition:
             self._queue_running = True
             self._clear_requested = False
+            LOGGER.info("Queue started")
             self.condition.notify_all()
 
     def stop_queue(self) -> None:
         with self.condition:
             self._queue_running = False
+            LOGGER.info("Queue stopped")
             self.condition.notify_all()
 
     def _job_dicts_locked(self) -> list[dict[str, Any]]:
@@ -269,6 +304,9 @@ class QueueStore:
             self._clear_requested = True
             self._queue_running = False
             self.jobs.clear()
+            self._next_job_id = 1
+            self._next_order = 1
+            LOGGER.info("Queue cleared")
             self.condition.notify_all()
 
     def request_cancel(self, job_id: int) -> bool:
@@ -307,7 +345,7 @@ class TranscriptionEngine:
                         raise RuntimeError(
                             "faster-whisper is not installed. Install dependencies before transcribing."
                         ) from exc
-                    print(f"Loading model {self.model_name} on {self.device} ({self.compute_type})")
+                    LOGGER.info("Loading model %s on %s (%s)", self.model_name, self.device, self.compute_type)
                     self._model = WhisperModel(
                         self.model_name,
                         device=self.device,
@@ -409,7 +447,7 @@ class Worker(threading.Thread):
             with self._current_lock:
                 self._current_job_id = job.id
             try:
-                print(f"Transcribing: {audio_path}")
+                LOGGER.info("Transcribing: %s", audio_path)
                 out_file, duration = self.engine.transcribe_file(
                     audio_path,
                     on_progress=lambda value: self.store.update(job.id, progress=value),
@@ -422,16 +460,16 @@ class Worker(threading.Thread):
                     progress=1.0,
                 )
                 self.store.complete(job.id)
-                print(f"Done: {out_file}")
+                LOGGER.info("Done: %s", out_file)
             except Exception as exc:
                 if str(exc) == "canceled":
                     current = self.store._find_locked(job.id)
                     current_progress = current.progress if current is not None else job.progress
                     self.store.update(job.id, status="canceled", error="", progress=current_progress)
-                    print(f"Canceled: {audio_path}")
+                    LOGGER.info("Canceled: %s", audio_path)
                 else:
                     self.store.fail(job.id, str(exc))
-                    print(f"Failed: {audio_path} -> {exc}")
+                    LOGGER.exception("Failed: %s", audio_path)
             finally:
                 with self._current_lock:
                     self._current_job_id = None
@@ -523,16 +561,21 @@ class AppHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
 
+class LoggingThreadingHTTPServer(ThreadingHTTPServer):
+    def handle_error(self, request: Any, client_address: tuple[str, int]) -> None:
+        LOGGER.exception("Error handling request from %s", client_address)
+
+
 def run_headless(files: list[str], args: argparse.Namespace) -> int:
     store = QueueStore()
     store.start_queue()
     result = store.enqueue(files)
     if result["added"]:
-        print(f"Queued: {len(result['added'])}")
+        LOGGER.info("Queued: %d", len(result["added"]))
     if result["skipped"]:
-        print(f"Skipped duplicates: {len(result['skipped'])}")
+        LOGGER.info("Skipped duplicates: %d", len(result["skipped"]))
     if result["missing"]:
-        print(f"Missing paths: {len(result['missing'])}")
+        LOGGER.info("Missing paths: %d", len(result["missing"]))
 
     engine = TranscriptionEngine(args.model, args.device, args.compute_type, args.language)
     worker = Worker(store, engine)
@@ -558,7 +601,7 @@ def run_headless(files: list[str], args: argparse.Namespace) -> int:
 def warm_up_model(args: argparse.Namespace) -> int:
     engine = TranscriptionEngine(args.model, args.device, args.compute_type, args.language)
     engine.warm_up()
-    print(f"Model ready: {args.model}")
+    LOGGER.info("Model ready: %s", args.model)
     return 0
 
 
@@ -568,14 +611,15 @@ def run_server(files: list[str], args: argparse.Namespace) -> int:
     if files:
         result = store.enqueue(files)
         if result["added"]:
-            print(f"Queued at startup: {len(result['added'])}")
+            LOGGER.info("Queued at startup: %d", len(result["added"]))
 
     engine = TranscriptionEngine(args.model, args.device, args.compute_type, args.language)
     worker = Worker(store, engine)
     worker.start()
 
     handler = type("ConfiguredHandler", (AppHandler,), {"store": store})
-    server = ThreadingHTTPServer((args.host, args.port), handler)
+    server = LoggingThreadingHTTPServer((args.host, args.port), handler)
+    LOGGER.info("Open http://%s:%s", args.host, args.port)
     print(f"Open http://{args.host}:{args.port}")
 
     try:
@@ -614,6 +658,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    setup_logging()
     args = parse_args()
     if args.download_model:
         return warm_up_model(args)
