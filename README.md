@@ -4,7 +4,7 @@ Local, sequential audio transcription queue with a minimal web UI. Runs
 [faster-whisper](https://github.com/SYSTRAN/faster-whisper) on your own machine —
 no cloud, no upload, no per-minute billing.
 
-![demo](attachments/demo.png)
+![demo](demo.png)
 
 ## What it does
 
@@ -111,5 +111,5 @@ web/dist/          # built SPA (served by the backend)
 tests/             # pytest suite for the core
 ```
 
-See the long-term roadmap for where this is headed (FastAPI backend, SQLite
-persistence, Svelte UI, Docker).
+See the long-term roadmap for where this is headed (UI file upload, more audio
+formats, subtitle export, in-UI job control).
