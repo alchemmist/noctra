@@ -12,7 +12,10 @@ from noctra.config import Settings
 
 @pytest.fixture
 def client(tmp_path: Path) -> Iterator[TestClient]:
-    settings = Settings(db_path=str(tmp_path / "queue.db"))
+    settings = Settings(
+        db_path=str(tmp_path / "queue.db"),
+        upload_dir=str(tmp_path / "uploads"),
+    )
     app = create_app(settings)
     # `with` triggers lifespan: store + worker are created on enter.
     with TestClient(app) as test_client:
@@ -101,6 +104,36 @@ def test_control_start_and_clear(client: TestClient, tmp_path: Path) -> None:
 def test_control_unknown_action(client: TestClient) -> None:
     resp = client.post("/api/control", json={"action": "explode"})
     assert resp.status_code == 422  # Literal["start","clear"] rejects it
+
+
+def test_upload_saves_audio_and_rejects_other(client: TestClient) -> None:
+    resp = client.post(
+        "/api/upload",
+        files=[
+            ("files", ("talk.m4a", b"audio-bytes", "audio/m4a")),
+            ("files", ("notes.txt", b"nope", "text/plain")),
+        ],
+        data={"model": "small", "formats": "txt,srt"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["added"]) == 1
+    job = body["added"][0]
+    assert job["path"].endswith("talk.m4a")
+    assert job["model"] == "small"
+    assert job["formats"] == "txt,srt"
+    assert "notes.txt" in body["missing"]  # non-audio rejected
+
+    # the file landed in the configured upload dir and is queued
+    assert client.get("/api/state").json()["pending"] == 1
+
+
+def test_upload_too_large_not_blocked_by_body_limit(client: TestClient) -> None:
+    # 9 MiB payload exceeds the 8 MiB JSON cap but uploads are exempt.
+    big = b"x" * (9 * 1024 * 1024)
+    resp = client.post("/api/upload", files=[("files", ("big.mp3", big, "audio/mpeg"))])
+    assert resp.status_code == 200
+    assert len(resp.json()["added"]) == 1
 
 
 def test_job_delete_removes_it(client: TestClient, tmp_path: Path) -> None:

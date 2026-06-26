@@ -1,7 +1,7 @@
-import {useEffect, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {Button, Icon, Select, TextArea} from '@gravity-ui/uikit';
-import {ListUl, Play, Plus, TrashBin} from '@gravity-ui/icons';
-import {control, enqueue, fetchConfig} from '../api';
+import {ArrowUpFromSquare, ListUl, Play, Plus, TrashBin} from '@gravity-ui/icons';
+import {control, enqueue, fetchConfig, uploadFiles} from '../api';
 import {useI18n} from '../i18n';
 
 interface Message {
@@ -18,6 +18,8 @@ export function CommandBar({running}: {running: boolean}) {
     const [model, setModel] = useState<string>('');
     const [allFormats, setAllFormats] = useState<string[]>([]);
     const [formats, setFormats] = useState<string[]>([]);
+    const [dragging, setDragging] = useState(false);
+    const fileInput = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         fetchConfig()
@@ -62,6 +64,30 @@ export function CommandBar({running}: {running: boolean}) {
             });
             setPaths('');
         });
+
+    const uploadList = (fileList: FileList | null) => {
+        const list = fileList ? Array.from(fileList) : [];
+        if (list.length === 0) {
+            return;
+        }
+        run(async () => {
+            const res = await uploadFiles(list, model || undefined, formats);
+            setMessage({
+                text: t('command.added', {
+                    added: res.added.length,
+                    skipped: res.skipped.length,
+                    missing: res.missing.length,
+                }),
+                error: false,
+            });
+        });
+    };
+
+    const onDrop = (event: React.DragEvent) => {
+        event.preventDefault();
+        setDragging(false);
+        uploadList(event.dataTransfer.files);
+    };
 
     const onStart = () => run(() => control('start').then(() => undefined));
     const onClear = () =>
@@ -117,6 +143,32 @@ export function CommandBar({running}: {running: boolean}) {
                     ))}
                 </Select>
             </div>
+            <div
+                className={`dropzone ${dragging ? 'dropzone_active' : ''}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => fileInput.current?.click()}
+                onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={onDrop}
+            >
+                <Icon data={ArrowUpFromSquare} size={18} />
+                <span>{busy ? t('command.uploading') : t('command.drop')}</span>
+            </div>
+            <input
+                ref={fileInput}
+                type="file"
+                multiple
+                accept="audio/*,.m4a,.mp3,.wav,.flac,.ogg,.opus"
+                hidden
+                onChange={(e) => {
+                    uploadList(e.target.files);
+                    e.target.value = '';
+                }}
+            />
             <div className="command-actions">
                 <Button view="action" size="l" onClick={onAdd} loading={busy}>
                     <Icon data={Plus} size={16} />

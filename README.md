@@ -10,7 +10,8 @@ no cloud, no upload, no per-minute billing.
 
 Point Noctra at audio files (or whole folders), and it transcribes them one by
 one into `.txt` files next to the originals. A small web UI shows the queue and
-progress; a headless CLI mode is available too.
+progress; a headless CLI mode is available too. You can also drag & drop audio
+straight into the UI — uploads are stored under `.noctra/uploads`.
 
 - Formats: `.m4a`, `.mp3`, `.wav`, `.flac`, `.ogg`, `.opus`
 - Output: `clip.m4a` → `clip.txt` (written atomically); optional `.srt` / `.vtt`

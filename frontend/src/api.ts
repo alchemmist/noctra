@@ -87,6 +87,29 @@ export function control(action: 'start' | 'clear'): Promise<unknown> {
     return postJson('/api/control', {action});
 }
 
+export async function uploadFiles(
+    files: File[],
+    model?: string,
+    formats?: string[],
+): Promise<EnqueueResult> {
+    const form = new FormData();
+    for (const file of files) {
+        form.append('files', file);
+    }
+    if (model) {
+        form.append('model', model);
+    }
+    if (formats && formats.length > 0) {
+        form.append('formats', formats.join(','));
+    }
+    const res = await fetch('/api/upload', {method: 'POST', body: form});
+    const text = await res.text();
+    if (!res.ok) {
+        throw new Error(text || `upload failed (${res.status})`);
+    }
+    return (text ? JSON.parse(text) : {}) as EnqueueResult;
+}
+
 export type JobAction = 'cancel' | 'retry' | 'delete';
 
 export function jobControl(id: number, action: JobAction): Promise<unknown> {

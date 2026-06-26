@@ -22,6 +22,8 @@ const MESSAGES: Record<Lang, Record<string, string>> = {
 
         'command.title': 'New queue',
         'command.hint': 'Paths to audio files or folders — one per line.',
+        'command.drop': 'Drag & drop audio here, or click to choose',
+        'command.uploading': 'Uploading…',
         'command.model': 'Model',
         'command.formats': 'Output',
         'command.add': 'Add',
@@ -58,6 +60,8 @@ const MESSAGES: Record<Lang, Record<string, string>> = {
 
         'command.title': 'Новая очередь',
         'command.hint': 'Пути к аудиофайлам или папкам — по одному на строку.',
+        'command.drop': 'Перетащите аудио сюда или нажмите, чтобы выбрать',
+        'command.uploading': 'Загрузка…',
         'command.model': 'Модель',
         'command.formats': 'Формат',
         'command.add': 'Добавить',

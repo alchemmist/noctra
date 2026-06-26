@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8787
     db_path: str = ".noctra/queue.db"
+    #: Where files uploaded through the UI are stored before transcription.
+    upload_dir: str = ".noctra/uploads"
 
 
 def load_settings(**overrides: Any) -> Settings:

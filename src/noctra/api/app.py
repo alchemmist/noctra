@@ -37,9 +37,11 @@ class BodyLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        content_length = request.headers.get("content-length")
-        if content_length and content_length.isdigit() and int(content_length) > self.max_bytes:
-            return JSONResponse({"error": "request too large"}, status_code=413)
+        # File uploads are legitimately large; the cap only guards JSON endpoints.
+        if request.url.path != "/api/upload":
+            content_length = request.headers.get("content-length")
+            if content_length and content_length.isdigit() and int(content_length) > self.max_bytes:
+                return JSONResponse({"error": "request too large"}, status_code=413)
         return await call_next(request)
 
 

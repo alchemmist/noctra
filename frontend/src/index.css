@@ -252,6 +252,39 @@ body {
     font-size: 13px !important;
 }
 
+.dropzone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    padding: 14px 16px;
+    border: 1.5px dashed var(--g-color-line-generic);
+    border-radius: 14px;
+    color: var(--g-color-text-secondary);
+    font-size: 12.5px;
+    text-align: center;
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        background 0.15s ease,
+        color 0.15s ease;
+}
+
+.dropzone:hover {
+    border-color: color-mix(in srgb, var(--noctra-accent) 45%, var(--g-color-line-generic));
+    color: var(--g-color-text-primary);
+}
+
+.dropzone svg {
+    color: var(--noctra-accent);
+}
+
+.dropzone_active {
+    border-color: var(--noctra-accent);
+    color: var(--g-color-text-primary);
+    background: color-mix(in srgb, var(--noctra-accent) 12%, transparent);
+}
+
 .command-actions {
     display: flex;
     gap: 10px;
