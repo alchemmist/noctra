@@ -79,6 +79,20 @@ make typecheck
 
 Logs are written to `.noctra_logs/`.
 
+### Frontend
+
+The UI is a React + Vite + [Gravity UI](https://gravity-ui.com/) app in
+`frontend/`. The committed `web/dist/` build is served by the backend, so you
+can run Noctra without Node. To work on the UI:
+
+```bash
+make frontend-install     # one-time
+make frontend-dev         # Vite dev server, proxies /api and /ws to :8787
+make frontend-build       # rebuild web/dist (commit the result)
+```
+
+Run a backend (`make serve`) alongside `make frontend-dev` for live reload.
+
 ## Project layout
 
 ```
@@ -90,9 +104,10 @@ src/noctra/
   persistence.py   # SQLite job repository
   engine.py        # faster-whisper wrapper
   worker.py        # background transcription thread
-  server.py        # stdlib HTTP layer (to be replaced by FastAPI)
+  api/             # FastAPI app, routes, schemas
   cli.py           # entry points / run modes
-web/               # static UI (vanilla JS, to be replaced by Svelte)
+frontend/          # React + Vite + Gravity UI source
+web/dist/          # built SPA (served by the backend)
 tests/             # pytest suite for the core
 ```
 

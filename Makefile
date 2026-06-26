@@ -1,4 +1,5 @@
 UV ?= uv
+NPM ?= npm
 COMPOSE ?= docker compose
 MODEL ?= large-v3
 LANGUAGE ?= ru
@@ -10,7 +11,8 @@ FILES ?=
 
 RUN = $(UV) run python -m noctra
 
-.PHONY: serve run model test lint fmt typecheck check install up down logs
+.PHONY: serve run model test lint fmt typecheck check install up down logs \
+        frontend-install frontend-build frontend-dev
 
 install:
 	$(UV) sync --extra dev
@@ -38,6 +40,17 @@ typecheck:
 	$(UV) run mypy
 
 check: lint typecheck test
+
+# Frontend (React + Vite + Gravity UI). Build output goes to web/dist, which the
+# backend serves. frontend-dev runs Vite with API/WS proxied to a local backend.
+frontend-install:
+	cd frontend && $(NPM) install
+
+frontend-build:
+	cd frontend && $(NPM) run build
+
+frontend-dev:
+	cd frontend && $(NPM) run dev
 
 # Containerized launch. Override the engine with: COMPOSE="podman compose" make up
 up:
