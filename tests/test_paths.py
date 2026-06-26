@@ -42,3 +42,11 @@ def test_expand_paths_recurses_directories(tmp_path: Path) -> None:
     assert missing == []
     # source_dir points at the expanded directory.
     assert all(src == str(tmp_path.resolve()) for _, src in expanded)
+
+
+def test_is_audio_file_accepts_extra_formats(tmp_path: Path) -> None:
+    for ext in (".wav", ".flac", ".ogg", ".opus"):
+        f = tmp_path / f"clip{ext}"
+        f.write_bytes(b"x")
+        assert is_audio_file(f), ext
+    assert not is_audio_file(tmp_path / "clip.aiff")  # still unsupported

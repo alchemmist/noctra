@@ -12,7 +12,7 @@ Point Noctra at audio files (or whole folders), and it transcribes them one by
 one into `.txt` files next to the originals. A small web UI shows the queue and
 progress; a headless CLI mode is available too.
 
-- Formats: `.m4a`, `.mp3`
+- Formats: `.m4a`, `.mp3`, `.wav`, `.flac`, `.ogg`, `.opus`
 - Output: `clip.m4a` → `clip.txt` (written atomically)
 - Default model: `large-v3`, language `ru`, CPU / `int8`
 - Pick the Whisper model per queue from the UI (`tiny` … `large-v3`)
