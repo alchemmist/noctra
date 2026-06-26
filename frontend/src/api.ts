@@ -121,7 +121,7 @@ export async function uploadFiles(
     return (text ? JSON.parse(text) : {}) as EnqueueResult;
 }
 
-export type JobAction = 'cancel' | 'retry' | 'delete';
+export type JobAction = 'cancel' | 'retry' | 'delete' | 'up' | 'down';
 
 export function jobControl(id: number, action: JobAction): Promise<unknown> {
     return postJson('/api/job', {id, action});

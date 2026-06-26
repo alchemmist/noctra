@@ -46,6 +46,8 @@ const MESSAGES: Record<Lang, Record<string, string>> = {
         'job.cancel': 'Cancel',
         'job.retry': 'Retry',
         'job.delete': 'Remove',
+        'job.up': 'Move up',
+        'job.down': 'Move down',
     },
     ru: {
         'brand.sub': 'локальная транскрибация аудио',
@@ -85,6 +87,8 @@ const MESSAGES: Record<Lang, Record<string, string>> = {
         'job.cancel': 'Отменить',
         'job.retry': 'Повторить',
         'job.delete': 'Удалить',
+        'job.up': 'Выше',
+        'job.down': 'Ниже',
     },
 };
 

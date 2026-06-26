@@ -135,6 +135,37 @@ def test_delete_removes_job_but_not_while_processing(tmp_path: Path) -> None:
     assert store.delete(processing.id) is False  # can't delete a running job
 
 
+def test_move_reorders_pending_jobs(tmp_path: Path) -> None:
+    store = QueueStore()
+    for name in ("a.m4a", "b.m4a", "c.m4a"):
+        store.enqueue([str(_audio(tmp_path, name))])
+
+    def order() -> list[str]:
+        return [Path(j["path"]).name for j in store.snapshot()["jobs"]]
+
+    assert order() == ["a.m4a", "b.m4a", "c.m4a"]
+
+    b_id = store.snapshot()["jobs"][1]["id"]
+    assert store.move(b_id, "up") is True
+    assert order() == ["b.m4a", "a.m4a", "c.m4a"]
+
+    # already at the top -> can't move further up
+    assert store.move(b_id, "up") is False
+    assert order() == ["b.m4a", "a.m4a", "c.m4a"]
+
+    assert store.move(b_id, "down") is True
+    assert order() == ["a.m4a", "b.m4a", "c.m4a"]
+
+
+def test_move_only_pending(tmp_path: Path) -> None:
+    store = QueueStore()
+    store.enqueue([str(_audio(tmp_path, "a.m4a"))])
+    store.start_queue()
+    job = store.claim_next()  # now processing
+    assert job is not None
+    assert store.move(job.id, "up") is False  # processing can't be reordered
+
+
 def test_clear_all_resets(tmp_path: Path) -> None:
     a = _audio(tmp_path, "a.m4a")
     store = QueueStore()

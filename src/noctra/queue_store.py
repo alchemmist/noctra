@@ -230,6 +230,24 @@ class QueueStore:
             self.condition.notify_all()
             return True
 
+    def move(self, job_id: int, direction: str) -> bool:
+        """Reorder a pending job by swapping its queue position with the adjacent
+        pending neighbour (``direction`` is ``"up"`` or ``"down"``)."""
+        with self.condition:
+            job = self._find_locked(job_id)
+            if job is None or job.status != JobStatus.PENDING:
+                return False
+            pending = [j for j in self._sorted_jobs_locked() if j.status == JobStatus.PENDING]
+            index = pending.index(job)
+            swap_index = index - 1 if direction == "up" else index + 1
+            if swap_index < 0 or swap_index >= len(pending):
+                return False
+            other = pending[swap_index]
+            job.queue_order, other.queue_order = other.queue_order, job.queue_order
+            self._persist_many_locked([job, other])
+            self.condition.notify_all()
+            return True
+
     def delete(self, job_id: int) -> bool:
         """Remove a single job. A job that is currently processing can't be
         deleted — cancel it first."""

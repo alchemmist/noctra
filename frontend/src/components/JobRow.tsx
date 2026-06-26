@@ -1,6 +1,8 @@
 import {Button, Icon} from '@gravity-ui/uikit';
 import {
     ArrowRotateLeft,
+    ChevronDown,
+    ChevronUp,
     CircleCheckFill,
     CircleDashed,
     CircleXmarkFill,
@@ -22,6 +24,8 @@ const STATUS: Record<JobStatus, {icon: typeof Clock; labelKey: string}> = {
 };
 
 const ACTION = {
+    up: {icon: ChevronUp, labelKey: 'job.up'},
+    down: {icon: ChevronDown, labelKey: 'job.down'},
     cancel: {icon: Xmark, labelKey: 'job.cancel'},
     retry: {icon: ArrowRotateLeft, labelKey: 'job.retry'},
     delete: {icon: TrashBin, labelKey: 'job.delete'},
@@ -29,7 +33,7 @@ const ACTION = {
 
 //: Which actions each status offers.
 const ACTIONS: Record<JobStatus, JobAction[]> = {
-    pending: ['delete'],
+    pending: ['up', 'down', 'delete'],
     processing: ['cancel'],
     done: ['delete'],
     failed: ['retry', 'delete'],

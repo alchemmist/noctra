@@ -69,7 +69,7 @@ class ControlRequest(BaseModel):
 
 class JobControlRequest(BaseModel):
     id: int
-    action: Literal["cancel", "retry", "delete"]
+    action: Literal["cancel", "retry", "delete", "up", "down"]
 
 
 class ControlResponse(BaseModel):

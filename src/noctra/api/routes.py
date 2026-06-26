@@ -148,8 +148,10 @@ def job_control(body: JobControlRequest, store: StoreDep) -> dict:
         ok = store.request_cancel(body.id)
     elif body.action == "retry":
         ok = store.retry(body.id)
-    else:
+    elif body.action == "delete":
         ok = store.delete(body.id)
+    else:
+        ok = store.move(body.id, body.action)  # "up" / "down"
     return {"ok": ok, "state": store.snapshot()}
 
 
