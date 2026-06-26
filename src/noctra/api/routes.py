@@ -22,7 +22,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 
-from ..config import AVAILABLE_FORMATS, AVAILABLE_MODELS, Settings
+from ..config import AVAILABLE_FORMATS, AVAILABLE_LANGUAGES, AVAILABLE_MODELS, Settings
 from ..paths import AUDIO_EXTENSIONS
 from ..queue_store import QueueStore
 from .schemas import (
@@ -60,6 +60,8 @@ def get_config(settings: SettingsDep) -> dict:
         "default_model": settings.model,
         "formats": list(AVAILABLE_FORMATS),
         "default_formats": [f for f in settings.output_formats.split(",") if f] or ["txt"],
+        "languages": list(AVAILABLE_LANGUAGES),
+        "default_language": settings.language,
     }
 
 
@@ -73,11 +75,16 @@ def _resolve_formats(requested: list[str], settings: Settings) -> str:
     return ",".join(chosen) if chosen else settings.output_formats
 
 
+def _resolve_language(requested: str, settings: Settings) -> str:
+    return requested if requested in AVAILABLE_LANGUAGES else settings.language
+
+
 @router.post("/api/enqueue", response_model=EnqueueResponse)
 def enqueue(body: EnqueueRequest, store: StoreDep, settings: SettingsDep) -> dict:
     model = body.model or settings.model
     formats = _resolve_formats(body.formats, settings)
-    return store.enqueue(body.paths, model=model, formats=formats)
+    language = _resolve_language(body.language, settings)
+    return store.enqueue(body.paths, model=model, formats=formats, language=language)
 
 
 def _unique_path(directory: Path, filename: str) -> Path:
@@ -99,6 +106,7 @@ async def upload(
     files: list[UploadFile],
     model: Annotated[str, Form()] = "",
     formats: Annotated[str, Form()] = "",
+    language: Annotated[str, Form()] = "",
 ) -> dict:
     """Save dropped/selected audio files, then enqueue them like any path."""
     upload_dir = Path(settings.upload_dir)
@@ -117,7 +125,10 @@ async def upload(
 
     resolved_model = model or settings.model
     resolved_formats = _resolve_formats([f for f in formats.split(",") if f], settings)
-    result = store.enqueue(saved, model=resolved_model, formats=resolved_formats)
+    resolved_language = _resolve_language(language, settings)
+    result = store.enqueue(
+        saved, model=resolved_model, formats=resolved_formats, language=resolved_language
+    )
     result["missing"] = [*result["missing"], *rejected]
     return result
 

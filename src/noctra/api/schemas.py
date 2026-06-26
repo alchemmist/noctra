@@ -24,6 +24,7 @@ class JobSchema(BaseModel):
     source_dir: str
     model: str
     formats: str
+    language: str
 
 
 class StateResponse(BaseModel):
@@ -43,6 +44,8 @@ class EnqueueRequest(BaseModel):
     model: str = ""
     #: Output formats to write; empty/omitted falls back to the server default.
     formats: list[str] = []
+    #: Transcription language code / "auto"; empty falls back to the default.
+    language: str = ""
 
 
 class ConfigResponse(BaseModel):
@@ -50,6 +53,8 @@ class ConfigResponse(BaseModel):
     default_model: str
     formats: list[str]
     default_formats: list[str]
+    languages: list[str]
+    default_language: str
 
 
 class EnqueueResponse(BaseModel):

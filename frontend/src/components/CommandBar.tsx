@@ -18,6 +18,8 @@ export function CommandBar({running}: {running: boolean}) {
     const [model, setModel] = useState<string>('');
     const [allFormats, setAllFormats] = useState<string[]>([]);
     const [formats, setFormats] = useState<string[]>([]);
+    const [languages, setLanguages] = useState<string[]>([]);
+    const [language, setLanguage] = useState<string>('');
     const [dragging, setDragging] = useState(false);
     const fileInput = useRef<HTMLInputElement>(null);
 
@@ -28,6 +30,8 @@ export function CommandBar({running}: {running: boolean}) {
                 setModel(config.default_model);
                 setAllFormats(config.formats);
                 setFormats(config.default_formats);
+                setLanguages(config.languages);
+                setLanguage(config.default_language);
             })
             .catch(() => undefined);
     }, []);
@@ -53,7 +57,7 @@ export function CommandBar({running}: {running: boolean}) {
                 setMessage({text: t('command.needPath'), error: true});
                 return;
             }
-            const res = await enqueue(list, model || undefined, formats);
+            const res = await enqueue(list, model || undefined, formats, language || undefined);
             setMessage({
                 text: t('command.added', {
                     added: res.added.length,
@@ -71,7 +75,7 @@ export function CommandBar({running}: {running: boolean}) {
             return;
         }
         run(async () => {
-            const res = await uploadFiles(list, model || undefined, formats);
+            const res = await uploadFiles(list, model || undefined, formats, language || undefined);
             setMessage({
                 text: t('command.added', {
                     added: res.added.length,
@@ -122,6 +126,23 @@ export function CommandBar({running}: {running: boolean}) {
                     {models.map((name) => (
                         <Select.Option key={name} value={name}>
                             {name}
+                        </Select.Option>
+                    ))}
+                </Select>
+            </div>
+            <div className="command-model">
+                <span className="command-model__label">{t('command.language')}</span>
+                <Select
+                    value={language ? [language] : []}
+                    onUpdate={(values) => setLanguage(values[0] ?? '')}
+                    disabled={busy || languages.length === 0}
+                    size="l"
+                    width="max"
+                    filterable
+                >
+                    {languages.map((code) => (
+                        <Select.Option key={code} value={code}>
+                            {code}
                         </Select.Option>
                     ))}
                 </Select>

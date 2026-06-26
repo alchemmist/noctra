@@ -25,9 +25,11 @@ class FakeModel:
         self._segments = segments
         self._duration = duration
         self.calls: list[str] = []
+        self.last_kwargs: dict[str, object] = {}
 
     def transcribe(self, audio: str, **kwargs: object) -> tuple[list[FakeSegment], FakeInfo]:
         self.calls.append(audio)
+        self.last_kwargs = kwargs
         return self._segments, FakeInfo(self._duration)
 
 

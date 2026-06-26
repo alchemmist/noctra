@@ -120,7 +120,11 @@ class QueueStore:
     # -- enqueue / claim / update --------------------------------------
 
     def enqueue(
-        self, raw_paths: list[str], model: str = "", formats: str = "txt"
+        self,
+        raw_paths: list[str],
+        model: str = "",
+        formats: str = "txt",
+        language: str = "",
     ) -> dict[str, Any]:
         with self.condition:
             expanded, missing = self._expand_raw_paths_locked(raw_paths)
@@ -144,6 +148,7 @@ class QueueStore:
                     source_dir=source_dir,
                     model=model,
                     formats=formats,
+                    language=language,
                 )
                 self.jobs.append(job)
                 new_jobs.append(job)

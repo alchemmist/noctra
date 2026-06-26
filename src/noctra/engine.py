@@ -82,6 +82,7 @@ class TranscriptionEngine:
         *,
         model_name: str | None = None,
         formats: tuple[str, ...] = ("txt",),
+        language: str | None = None,
         on_progress: ProgressCallback | None = None,
         should_cancel: CancelCheck | None = None,
     ) -> tuple[Path, float]:
@@ -89,9 +90,16 @@ class TranscriptionEngine:
         fmts = [f for f in formats if f in SUPPORTED_FORMATS] or ["txt"]
         out_files = {f: output_path_for(audio_path, f) for f in fmts}
         temp_files = {f: p.with_suffix(p.suffix + ".part") for f, p in out_files.items()}
+        # "" / None -> engine default; "auto" -> let Whisper detect; else a code.
+        if not language:
+            effective_language: str | None = self.language
+        elif language == "auto":
+            effective_language = None
+        else:
+            effective_language = language
         segments, info = model.transcribe(
             str(audio_path),
-            language=self.language,
+            language=effective_language,
             vad_filter=True,
         )
 

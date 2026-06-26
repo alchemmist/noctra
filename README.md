@@ -19,6 +19,7 @@ straight into the UI — uploads are stored under `.noctra/uploads`.
   subtitles with timestamps, selectable per queue
 - Default model: `large-v3`, language `ru`, CPU / `int8`
 - Pick the Whisper model per queue from the UI (`tiny` … `large-v3`)
+- Choose the transcription language per queue, or `auto` to detect it
 - UI available in English (default) and Russian — toggle in the header
 
 ## Requirements

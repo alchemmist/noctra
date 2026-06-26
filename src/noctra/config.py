@@ -26,6 +26,27 @@ AVAILABLE_MODELS: tuple[str, ...] = (
 #: Transcript output formats selectable from the UI / CLI.
 AVAILABLE_FORMATS: tuple[str, ...] = ("txt", "srt", "vtt")
 
+#: Transcription languages offered in the UI. ``auto`` lets Whisper detect it;
+#: the rest are ISO codes for the most common languages.
+AVAILABLE_LANGUAGES: tuple[str, ...] = (
+    "auto",
+    "ru",
+    "en",
+    "uk",
+    "de",
+    "fr",
+    "es",
+    "it",
+    "pt",
+    "pl",
+    "nl",
+    "tr",
+    "zh",
+    "ja",
+    "ko",
+    "ar",
+)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(

@@ -56,6 +56,9 @@ class Job:
     model: str = ""
     #: Comma-separated output formats to write (e.g. ``"txt"`` or ``"txt,srt"``).
     formats: str = "txt"
+    #: Transcription language: ``""`` means "use the engine default", ``"auto"``
+    #: means auto-detect, otherwise a language code like ``"ru"`` / ``"en"``.
+    language: str = ""
 
     @property
     def path_obj(self) -> Path:

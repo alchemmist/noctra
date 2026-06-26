@@ -21,6 +21,7 @@ class FakeEngine(TranscriptionEngine):
         *,
         model_name=None,
         formats=("txt",),
+        language=None,
         on_progress=None,
         should_cancel=None,
     ):

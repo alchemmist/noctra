@@ -57,12 +57,24 @@ def test_config_lists_models(client: TestClient) -> None:
     assert body["default_model"] == "large-v3"  # Settings default
     assert body["formats"] == ["txt", "srt", "vtt"]
     assert body["default_formats"] == ["txt"]
+    assert "auto" in body["languages"]
+    assert body["default_language"] == "ru"  # Settings default
 
 
 def test_enqueue_with_formats_records_them(client: TestClient, tmp_path: Path) -> None:
     audio = _audio(tmp_path)
     resp = client.post("/api/enqueue", json={"paths": [str(audio)], "formats": ["txt", "srt"]})
     assert resp.json()["added"][0]["formats"] == "txt,srt"
+
+
+def test_enqueue_language(client: TestClient, tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    chosen = client.post("/api/enqueue", json={"paths": [str(audio)], "language": "auto"})
+    assert chosen.json()["added"][0]["language"] == "auto"
+    # unknown/empty language falls back to the server default ("ru")
+    audio2 = _audio(tmp_path, "b.m4a")
+    fallback = client.post("/api/enqueue", json={"paths": [str(audio2)], "language": "xx"})
+    assert fallback.json()["added"][0]["language"] == "ru"
 
 
 def test_enqueue_without_formats_uses_default(client: TestClient, tmp_path: Path) -> None:

@@ -13,6 +13,7 @@ export interface Job {
     source_dir: string;
     model: string;
     formats: string;
+    language: string;
 }
 
 export interface Config {
@@ -20,6 +21,8 @@ export interface Config {
     default_model: string;
     formats: string[];
     default_formats: string[];
+    languages: string[];
+    default_language: string;
 }
 
 export interface QueueState {
@@ -72,13 +75,17 @@ export function enqueue(
     paths: string[],
     model?: string,
     formats?: string[],
+    language?: string,
 ): Promise<EnqueueResult> {
-    const body: {paths: string[]; model?: string; formats?: string[]} = {paths};
+    const body: {paths: string[]; model?: string; formats?: string[]; language?: string} = {paths};
     if (model) {
         body.model = model;
     }
     if (formats && formats.length > 0) {
         body.formats = formats;
+    }
+    if (language) {
+        body.language = language;
     }
     return postJson<EnqueueResult>('/api/enqueue', body);
 }
@@ -91,6 +98,7 @@ export async function uploadFiles(
     files: File[],
     model?: string,
     formats?: string[],
+    language?: string,
 ): Promise<EnqueueResult> {
     const form = new FormData();
     for (const file of files) {
@@ -101,6 +109,9 @@ export async function uploadFiles(
     }
     if (formats && formats.length > 0) {
         form.append('formats', formats.join(','));
+    }
+    if (language) {
+        form.append('language', language);
     }
     const res = await fetch('/api/upload', {method: 'POST', body: form});
     const text = await res.text();

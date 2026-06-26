@@ -94,6 +94,21 @@ def test_transcribe_writes_srt_and_vtt(tmp_path: Path) -> None:
     assert not output_path_for(audio, "srt").with_suffix(".srt.part").exists()
 
 
+def test_language_resolution(tmp_path: Path) -> None:
+    audio = make_audio(tmp_path)
+
+    def run(language: str | None) -> object:
+        model = FakeModel([FakeSegment(1.0, "x")], duration=1.0)
+        engine = _engine_with(model)  # engine default language is "ru"
+        engine.transcribe_file(audio, language=language)
+        return model.last_kwargs["language"]
+
+    assert run(None) == "ru"  # falls back to engine default
+    assert run("") == "ru"  # empty also means default
+    assert run("auto") is None  # auto-detect
+    assert run("en") == "en"  # explicit code
+
+
 def test_transcribe_cancel_raises_and_cleans_up(tmp_path: Path) -> None:
     audio = make_audio(tmp_path)
     model = FakeModel([FakeSegment(5.0, "a"), FakeSegment(10.0, "b")], duration=10.0)
