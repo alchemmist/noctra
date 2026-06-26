@@ -1,0 +1,25 @@
+# One-command local launch:  docker compose up   (or: podman compose up)
+# Then open http://localhost:8787
+services:
+  noctra:
+    build: .
+    image: noctra:local
+    ports:
+      - "8787:8787"
+    environment:
+      NOCTRA_HOST: "0.0.0.0"
+      NOCTRA_MODEL: "${NOCTRA_MODEL:-large-v3}"
+      NOCTRA_LANGUAGE: "${NOCTRA_LANGUAGE:-ru}"
+      NOCTRA_DEVICE: "${NOCTRA_DEVICE:-cpu}"
+      NOCTRA_COMPUTE_TYPE: "${NOCTRA_COMPUTE_TYPE:-int8}"
+    volumes:
+      # Put audio here on the host; reference it as /data/<file> in the UI.
+      - ./audio:/data
+      # Persist downloaded Whisper models across restarts.
+      - model-cache:/root/.cache/huggingface
+      # Keep logs on the host.
+      - ./.noctra_logs:/app/.noctra_logs
+    restart: unless-stopped
+
+volumes:
+  model-cache:

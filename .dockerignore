@@ -1,0 +1,17 @@
+.git
+.github
+.venv
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.noctra_logs/
+.noctra/
+.coverage
+htmlcov/
+audio/
+attachments/
+frontend/node_modules/
+*.egg-info/
+.env

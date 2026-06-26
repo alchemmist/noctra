@@ -22,7 +22,20 @@ progress; a headless CLI mode is available too.
 - [`uv`](https://docs.astral.sh/uv/) (package manager / runner)
 - `ffmpeg` available on PATH (required by faster-whisper)
 
-## Quick start
+## Quick start (Docker / Podman)
+
+One command, then open <http://localhost:8787>:
+
+```bash
+docker compose up --build      # or: podman compose up --build
+# shortcut: make up   (override engine: COMPOSE="podman compose" make up)
+```
+
+Drop audio into `./audio` on the host and reference it as `/data/<file>` in
+the UI. Downloaded models are cached in a named volume, so the first run
+downloads the model once and later runs start instantly.
+
+## Quick start (local, no container)
 
 ```bash
 make install        # create venv, install deps (incl. dev tools)
@@ -30,7 +43,8 @@ make model          # download & cache the Whisper model (first run only)
 make serve          # open http://127.0.0.1:8787
 ```
 
-Or transcribe files headless, without the UI:
+Interactive API docs are served at `/docs` (OpenAPI). Or transcribe files
+headless, without the UI:
 
 ```bash
 make run FILES="~/recordings/a.m4a ~/recordings/folder"

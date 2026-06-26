@@ -1,4 +1,5 @@
 UV ?= uv
+COMPOSE ?= docker compose
 MODEL ?= large-v3
 LANGUAGE ?= ru
 DEVICE ?= cpu
@@ -9,7 +10,7 @@ FILES ?=
 
 RUN = $(UV) run python -m noctra
 
-.PHONY: serve run model test lint fmt typecheck check install
+.PHONY: serve run model test lint fmt typecheck check install up down logs
 
 install:
 	$(UV) sync --extra dev
@@ -37,3 +38,13 @@ typecheck:
 	$(UV) run mypy
 
 check: lint typecheck test
+
+# Containerized launch. Override the engine with: COMPOSE="podman compose" make up
+up:
+	$(COMPOSE) up --build
+
+down:
+	$(COMPOSE) down
+
+logs:
+	$(COMPOSE) logs -f
