@@ -70,6 +70,7 @@ def create_app(settings: Settings, files: list[str] | None = None) -> FastAPI:
         worker.start()
         app.state.store = store
         app.state.worker = worker
+        app.state.settings = settings
         try:
             yield
         finally:

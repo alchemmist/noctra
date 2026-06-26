@@ -11,6 +11,12 @@ export interface Job {
     duration: number;
     cancel_requested: boolean;
     source_dir: string;
+    model: string;
+}
+
+export interface Config {
+    models: string[];
+    default_model: string;
 }
 
 export interface QueueState {
@@ -51,8 +57,16 @@ export interface EnqueueResult {
     missing: string[];
 }
 
-export function enqueue(paths: string[]): Promise<EnqueueResult> {
-    return postJson<EnqueueResult>('/api/enqueue', {paths});
+export async function fetchConfig(): Promise<Config> {
+    const res = await fetch('/api/config');
+    if (!res.ok) {
+        throw new Error(`config failed (${res.status})`);
+    }
+    return res.json();
+}
+
+export function enqueue(paths: string[], model?: string): Promise<EnqueueResult> {
+    return postJson<EnqueueResult>('/api/enqueue', model ? {paths, model} : {paths});
 }
 
 export function control(action: 'start' | 'clear'): Promise<unknown> {

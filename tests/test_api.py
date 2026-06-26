@@ -48,6 +48,25 @@ def test_enqueue_and_state(client: TestClient, tmp_path: Path) -> None:
     assert state["jobs"][0]["path"] == str(audio.resolve())
 
 
+def test_config_lists_models(client: TestClient) -> None:
+    body = client.get("/api/config").json()
+    assert "large-v3" in body["models"]
+    assert body["default_model"] == "large-v3"  # Settings default
+
+
+def test_enqueue_with_model_records_it(client: TestClient, tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    resp = client.post("/api/enqueue", json={"paths": [str(audio)], "model": "small"})
+    assert resp.status_code == 200
+    assert resp.json()["added"][0]["model"] == "small"
+
+
+def test_enqueue_without_model_uses_default(client: TestClient, tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    resp = client.post("/api/enqueue", json={"paths": [str(audio)]})
+    assert resp.json()["added"][0]["model"] == "large-v3"  # server default
+
+
 def test_enqueue_validation_error(client: TestClient) -> None:
     resp = client.post("/api/enqueue", json={"paths": "not-a-list"})
     assert resp.status_code == 422  # pydantic rejects, no handler code needed

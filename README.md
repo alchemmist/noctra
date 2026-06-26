@@ -15,6 +15,8 @@ progress; a headless CLI mode is available too.
 - Formats: `.m4a`, `.mp3`
 - Output: `clip.m4a` → `clip.txt` (written atomically)
 - Default model: `large-v3`, language `ru`, CPU / `int8`
+- Pick the Whisper model per queue from the UI (`tiny` … `large-v3`)
+- UI available in English (default) and Russian — toggle in the header
 
 ## Requirements
 

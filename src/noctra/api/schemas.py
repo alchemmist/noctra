@@ -22,6 +22,7 @@ class JobSchema(BaseModel):
     duration: float
     cancel_requested: bool
     source_dir: str
+    model: str
 
 
 class StateResponse(BaseModel):
@@ -37,6 +38,13 @@ class StateResponse(BaseModel):
 
 class EnqueueRequest(BaseModel):
     paths: list[str]
+    #: Whisper model to use; empty/omitted falls back to the server default.
+    model: str = ""
+
+
+class ConfigResponse(BaseModel):
+    models: list[str]
+    default_model: str
 
 
 class EnqueueResponse(BaseModel):

@@ -1,13 +1,14 @@
 import {Icon} from '@gravity-ui/uikit';
 import {CircleCheckFill, CircleDashed, CircleXmarkFill, Clock, MagicWand} from '@gravity-ui/icons';
 import type {Job, JobStatus} from '../api';
+import {useI18n} from '../i18n';
 
-const STATUS: Record<JobStatus, {icon: typeof Clock; label: string}> = {
-    pending: {icon: Clock, label: 'в очереди'},
-    processing: {icon: MagicWand, label: 'идёт'},
-    done: {icon: CircleCheckFill, label: 'готово'},
-    failed: {icon: CircleXmarkFill, label: 'ошибка'},
-    canceled: {icon: CircleDashed, label: 'отменено'},
+const STATUS: Record<JobStatus, {icon: typeof Clock; labelKey: string}> = {
+    pending: {icon: Clock, labelKey: 'job.pending'},
+    processing: {icon: MagicWand, labelKey: 'job.processing'},
+    done: {icon: CircleCheckFill, labelKey: 'job.done'},
+    failed: {icon: CircleXmarkFill, labelKey: 'job.failed'},
+    canceled: {icon: CircleDashed, labelKey: 'job.canceled'},
 };
 
 function basename(path: string): string {
@@ -16,7 +17,9 @@ function basename(path: string): string {
 }
 
 export function JobRow({job, index}: {job: Job; index: number}) {
+    const {t} = useI18n();
     const status = STATUS[job.status];
+    const label = t(status.labelKey);
     const percent = Math.round(job.progress * 100);
 
     return (
@@ -42,15 +45,16 @@ export function JobRow({job, index}: {job: Job; index: number}) {
 
             <div className="job-meta">
                 <span className="job-num">#{index + 1}</span>
+                {job.model && <span className="job-model">{job.model}</span>}
                 {job.status === 'processing' && <span className="job-time">{percent}%</span>}
                 {job.status === 'done' && (
                     <span className="job-time">
-                        {status.label}
-                        {job.duration ? ` · ${Math.round(job.duration)} с` : ''}
+                        {label}
+                        {job.duration ? ` · ${t('job.seconds', {n: Math.round(job.duration)})}` : ''}
                     </span>
                 )}
                 {job.status !== 'processing' && job.status !== 'done' && (
-                    <span className="job-time">{status.label}</span>
+                    <span className="job-time">{label}</span>
                 )}
             </div>
         </div>

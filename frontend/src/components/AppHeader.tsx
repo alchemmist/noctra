@@ -1,6 +1,7 @@
 import {Button, Icon} from '@gravity-ui/uikit';
 import {Microphone, Moon, Sun} from '@gravity-ui/icons';
 import type {Theme} from '../theme';
+import {useI18n} from '../i18n';
 
 interface Props {
     theme: Theme;
@@ -9,6 +10,8 @@ interface Props {
 }
 
 export function AppHeader({theme, onToggleTheme, running}: Props) {
+    const {t, lang, setLang} = useI18n();
+
     return (
         <header className="app-header">
             <div className="brand">
@@ -17,20 +20,28 @@ export function AppHeader({theme, onToggleTheme, running}: Props) {
                 </div>
                 <div>
                     <div className="brand-title">Noctra</div>
-                    <div className="brand-sub">локальная транскрибация аудио</div>
+                    <div className="brand-sub">{t('brand.sub')}</div>
                 </div>
             </div>
 
             <div className="header-actions">
                 <span className={`run-chip ${running ? 'run-chip_on' : ''}`}>
                     <span className="run-chip__dot" />
-                    {running ? 'идёт обработка' : 'ожидание'}
+                    {running ? t('status.running') : t('status.idle')}
                 </span>
                 <Button
                     view="outlined"
                     size="l"
+                    onClick={() => setLang(lang === 'en' ? 'ru' : 'en')}
+                    aria-label={t('action.toggleLang')}
+                >
+                    <span className="lang-code">{lang.toUpperCase()}</span>
+                </Button>
+                <Button
+                    view="outlined"
+                    size="l"
                     onClick={onToggleTheme}
-                    aria-label="Переключить тему"
+                    aria-label={t('action.toggleTheme')}
                 >
                     <Icon data={theme === 'dark' ? Sun : Moon} size={18} />
                 </Button>

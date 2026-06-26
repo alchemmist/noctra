@@ -52,6 +52,7 @@ class Worker(threading.Thread):
             LOGGER.info("Transcribing: %s", audio_path)
             out_file, duration = self.engine.transcribe_file(
                 audio_path,
+                model_name=job.model or None,
                 on_progress=lambda value: self.store.update(job.id, progress=value),
                 should_cancel=lambda: self._stop_event.is_set() or self._is_canceled(job.id),
             )

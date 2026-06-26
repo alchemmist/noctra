@@ -24,18 +24,19 @@ CREATE TABLE IF NOT EXISTS jobs (
     progress         REAL    NOT NULL DEFAULT 0,
     duration         REAL    NOT NULL DEFAULT 0,
     cancel_requested INTEGER NOT NULL DEFAULT 0,
-    source_dir       TEXT    NOT NULL DEFAULT ''
+    source_dir       TEXT    NOT NULL DEFAULT '',
+    model            TEXT    NOT NULL DEFAULT ''
 );
 """
 
 _COLUMNS = (
     "id, path, queue_order, status, text_path, error, "
-    "progress, duration, cancel_requested, source_dir"
+    "progress, duration, cancel_requested, source_dir, model"
 )
 
 _UPSERT = f"""
 INSERT INTO jobs ({_COLUMNS})
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
     path=excluded.path,
     queue_order=excluded.queue_order,
@@ -45,8 +46,13 @@ ON CONFLICT(id) DO UPDATE SET
     progress=excluded.progress,
     duration=excluded.duration,
     cancel_requested=excluded.cancel_requested,
-    source_dir=excluded.source_dir
+    source_dir=excluded.source_dir,
+    model=excluded.model
 """
+
+#: Columns added after the initial schema shipped, applied as idempotent
+#: ``ALTER TABLE`` migrations so existing databases keep working.
+_MIGRATIONS = (("model", "TEXT NOT NULL DEFAULT ''"),)
 
 
 def _row_to_job(row: tuple) -> Job:
@@ -61,6 +67,7 @@ def _row_to_job(row: tuple) -> Job:
         duration=row[7],
         cancel_requested=bool(row[8]),
         source_dir=row[9],
+        model=row[10],
     )
 
 
@@ -76,6 +83,7 @@ def _job_to_row(job: Job) -> tuple:
         job.duration,
         int(job.cancel_requested),
         job.source_dir,
+        job.model,
     )
 
 
@@ -86,7 +94,15 @@ class JobRepository:
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA)
+        self._migrate()
         self._conn.commit()
+
+    def _migrate(self) -> None:
+        """Add columns introduced after the original schema to old databases."""
+        existing = {row[1] for row in self._conn.execute("PRAGMA table_info(jobs)")}
+        for column, definition in _MIGRATIONS:
+            if column not in existing:
+                self._conn.execute(f"ALTER TABLE jobs ADD COLUMN {column} {definition}")
 
     def load_all(self) -> list[Job]:
         rows = self._conn.execute(

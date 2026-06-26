@@ -40,6 +40,33 @@ def test_transcribe_skips_blank_segments(tmp_path: Path) -> None:
     assert out_file.read_text(encoding="utf-8") == "kept\n"
 
 
+def test_named_models_are_cached_and_reused() -> None:
+    loaded: list[str] = []
+    engine = TranscriptionEngine("default", "cpu", "int8", "ru")
+    engine._load_model = lambda name: loaded.append(name) or FakeModel([], 0.0)  # type: ignore[assignment]
+
+    first = engine.model("small")
+    second = engine.model("small")
+    other = engine.model("medium")
+
+    assert first is second  # same instance, loaded once
+    assert other is not first
+    assert loaded == ["small", "medium"]  # default model never loaded here
+
+
+def test_transcribe_uses_requested_model(tmp_path: Path) -> None:
+    audio = make_audio(tmp_path)
+    default_model = FakeModel([FakeSegment(1.0, "default")], duration=1.0)
+    named_model = FakeModel([FakeSegment(1.0, "named")], duration=1.0)
+    engine = _engine_with(default_model)
+    engine._models["small"] = named_model
+
+    out_file, _ = engine.transcribe_file(audio, model_name="small")
+
+    assert out_file.read_text(encoding="utf-8") == "named\n"
+    assert default_model.calls == []  # default untouched
+
+
 def test_transcribe_cancel_raises_and_cleans_up(tmp_path: Path) -> None:
     audio = make_audio(tmp_path)
     model = FakeModel([FakeSegment(5.0, "a"), FakeSegment(10.0, "b")], duration=10.0)

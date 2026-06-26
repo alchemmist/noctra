@@ -51,6 +51,9 @@ class Job:
     duration: float = 0.0
     cancel_requested: bool = False
     source_dir: str = ""
+    #: Whisper model to transcribe this job with. Empty means "use the engine
+    #: default" (resolved when the job is enqueued).
+    model: str = ""
 
     @property
     def path_obj(self) -> Path:

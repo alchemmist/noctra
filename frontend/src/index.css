@@ -247,6 +247,29 @@ body {
     color: var(--g-color-text-secondary);
 }
 
+.command-model {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.command-model__label {
+    font-size: 12.5px;
+    color: var(--g-color-text-secondary);
+    flex: 0 0 auto;
+}
+
+.command-model .g-select {
+    flex: 1 1 auto;
+}
+
+.lang-code {
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+}
+
 .command-msg {
     font-size: 13px;
     padding: 10px 12px;
@@ -383,6 +406,16 @@ body {
 .job-time {
     font-size: 12px;
     color: var(--g-color-text-secondary);
+}
+
+.job-model {
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    color: var(--g-color-text-secondary);
+    background: var(--g-color-base-generic);
+    border: 1px solid var(--g-color-line-generic);
+    font-variant-numeric: tabular-nums;
 }
 
 /* ---------- empty ---------- */

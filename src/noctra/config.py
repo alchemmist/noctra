@@ -11,6 +11,18 @@ from typing import Any
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+#: Whisper model sizes selectable from the UI / CLI, smallest (fastest) first.
+#: These are the canonical faster-whisper model names; the engine downloads and
+#: caches each one on first use.
+AVAILABLE_MODELS: tuple[str, ...] = (
+    "tiny",
+    "base",
+    "small",
+    "medium",
+    "large-v2",
+    "large-v3",
+)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 
 from noctra.domain import JobStatus
@@ -87,6 +88,46 @@ def test_next_ids_continue_after_restart(tmp_path: Path) -> None:
     ids = sorted(j["id"] for j in store2.snapshot()["jobs"])
     assert ids == [1, 2]  # no id collision across restarts
     repo2.close()
+
+
+def test_model_persists(tmp_path: Path) -> None:
+    db = tmp_path / "queue.db"
+    a = _audio(tmp_path, "a.m4a")
+
+    store, repo = _reopen(db)
+    store.enqueue([str(a)], model="small")
+    repo.close()
+
+    store2, repo2 = _reopen(db)
+    assert store2.snapshot()["jobs"][0]["model"] == "small"
+    repo2.close()
+
+
+def test_migration_adds_model_column_to_old_db(tmp_path: Path) -> None:
+    db = tmp_path / "queue.db"
+    # Simulate a pre-5.1 database: jobs table without the `model` column.
+    conn = sqlite3.connect(str(db))
+    conn.executescript(
+        """
+        CREATE TABLE jobs (
+            id INTEGER PRIMARY KEY, path TEXT NOT NULL, queue_order INTEGER NOT NULL,
+            status TEXT NOT NULL, text_path TEXT NOT NULL DEFAULT '',
+            error TEXT NOT NULL DEFAULT '', progress REAL NOT NULL DEFAULT 0,
+            duration REAL NOT NULL DEFAULT 0, cancel_requested INTEGER NOT NULL DEFAULT 0,
+            source_dir TEXT NOT NULL DEFAULT ''
+        );
+        INSERT INTO jobs (id, path, queue_order, status) VALUES (1, '/x/a.m4a', 1, 'pending');
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    # Opening through the repository migrates the schema and loads the old row.
+    repo = JobRepository(db)
+    jobs = repo.load_all()
+    assert len(jobs) == 1
+    assert jobs[0].model == ""  # backfilled with the default
+    repo.close()
 
 
 def test_clear_all_wipes_db(tmp_path: Path) -> None:

@@ -25,25 +25,40 @@ class TranscriptionEngine:
         self.device = device
         self.compute_type = compute_type
         self.language = language
+        #: Cache for the default model; named models live in ``_models``.
         self._model: Any | None = None
+        self._models: dict[str, Any] = {}
         self._lock = threading.Lock()
 
-    def model(self) -> Any:
-        if self._model is None:
-            with self._lock:
-                if self._model is None:
-                    self._model = self._load_model()
-        return self._model
+    def model(self, name: str | None = None) -> Any:
+        """Return a loaded model, lazily loading and caching it by name.
 
-    def _load_model(self) -> Any:
+        ``name=None`` (or the configured default) uses the ``_model`` slot so
+        tests can inject a fake default model; any other name is cached in
+        ``_models`` so switching models per job doesn't reload on every run.
+        """
+        if name is None or name == self.model_name:
+            if self._model is None:
+                with self._lock:
+                    if self._model is None:
+                        self._model = self._load_model(self.model_name)
+            return self._model
+        with self._lock:
+            model = self._models.get(name)
+            if model is None:
+                model = self._load_model(name)
+                self._models[name] = model
+            return model
+
+    def _load_model(self, name: str) -> Any:
         try:
             from faster_whisper import WhisperModel
         except ModuleNotFoundError as exc:  # pragma: no cover - runtime dependency guard
             raise RuntimeError(
                 "faster-whisper is not installed. Install dependencies before transcribing."
             ) from exc
-        LOGGER.info("Loading model %s on %s (%s)", self.model_name, self.device, self.compute_type)
-        return WhisperModel(self.model_name, device=self.device, compute_type=self.compute_type)
+        LOGGER.info("Loading model %s on %s (%s)", name, self.device, self.compute_type)
+        return WhisperModel(name, device=self.device, compute_type=self.compute_type)
 
     def warm_up(self) -> None:
         self.model()
@@ -52,10 +67,11 @@ class TranscriptionEngine:
         self,
         audio_path: Path,
         *,
+        model_name: str | None = None,
         on_progress: ProgressCallback | None = None,
         should_cancel: CancelCheck | None = None,
     ) -> tuple[Path, float]:
-        model = self.model()
+        model = self.model(model_name)
         out_file = output_path_for(audio_path)
         temp_file = out_file.with_suffix(out_file.suffix + ".part")
         segments, info = model.transcribe(

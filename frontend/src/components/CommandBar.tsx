@@ -1,7 +1,8 @@
-import {useState} from 'react';
-import {Button, Icon, TextArea} from '@gravity-ui/uikit';
+import {useEffect, useState} from 'react';
+import {Button, Icon, Select, TextArea} from '@gravity-ui/uikit';
 import {ListUl, Play, Plus, TrashBin} from '@gravity-ui/icons';
-import {control, enqueue} from '../api';
+import {control, enqueue, fetchConfig} from '../api';
+import {useI18n} from '../i18n';
 
 interface Message {
     text: string;
@@ -9,9 +10,21 @@ interface Message {
 }
 
 export function CommandBar({running}: {running: boolean}) {
+    const {t} = useI18n();
     const [paths, setPaths] = useState('');
     const [message, setMessage] = useState<Message | null>(null);
     const [busy, setBusy] = useState(false);
+    const [models, setModels] = useState<string[]>([]);
+    const [model, setModel] = useState<string>('');
+
+    useEffect(() => {
+        fetchConfig()
+            .then((config) => {
+                setModels(config.models);
+                setModel(config.default_model);
+            })
+            .catch(() => undefined);
+    }, []);
 
     const run = async (action: () => Promise<void>) => {
         setBusy(true);
@@ -31,12 +44,16 @@ export function CommandBar({running}: {running: boolean}) {
                 .map((line) => line.trim())
                 .filter(Boolean);
             if (list.length === 0) {
-                setMessage({text: 'Добавьте хотя бы один путь', error: true});
+                setMessage({text: t('command.needPath'), error: true});
                 return;
             }
-            const res = await enqueue(list);
+            const res = await enqueue(list, model || undefined);
             setMessage({
-                text: `Добавлено: ${res.added.length} · пропущено: ${res.skipped.length} · не найдено: ${res.missing.length}`,
+                text: t('command.added', {
+                    added: res.added.length,
+                    skipped: res.skipped.length,
+                    missing: res.missing.length,
+                }),
                 error: false,
             });
             setPaths('');
@@ -45,18 +62,16 @@ export function CommandBar({running}: {running: boolean}) {
     const onStart = () => run(() => control('start').then(() => undefined));
     const onClear = () =>
         run(() =>
-            control('clear').then(() => setMessage({text: 'Очередь очищена', error: false})),
+            control('clear').then(() => setMessage({text: t('command.cleared'), error: false})),
         );
 
     return (
         <section className="surface command">
             <div className="panel-title">
                 <Icon data={ListUl} size={17} />
-                Новая очередь
+                {t('command.title')}
             </div>
-            <div className="command-hint">
-                Пути к аудиофайлам или папкам — по одному на строку.
-            </div>
+            <div className="command-hint">{t('command.hint')}</div>
             <TextArea
                 value={paths}
                 onUpdate={setPaths}
@@ -65,10 +80,26 @@ export function CommandBar({running}: {running: boolean}) {
                 disabled={busy}
                 size="l"
             />
+            <div className="command-model">
+                <span className="command-model__label">{t('command.model')}</span>
+                <Select
+                    value={model ? [model] : []}
+                    onUpdate={(values) => setModel(values[0] ?? '')}
+                    disabled={busy || models.length === 0}
+                    size="l"
+                    width="max"
+                >
+                    {models.map((name) => (
+                        <Select.Option key={name} value={name}>
+                            {name}
+                        </Select.Option>
+                    ))}
+                </Select>
+            </div>
             <div className="command-actions">
                 <Button view="action" size="l" onClick={onAdd} loading={busy}>
                     <Icon data={Plus} size={16} />
-                    Добавить
+                    {t('command.add')}
                 </Button>
                 <Button
                     view="outlined-success"
@@ -77,7 +108,7 @@ export function CommandBar({running}: {running: boolean}) {
                     disabled={busy || running}
                 >
                     <Icon data={Play} size={16} />
-                    Старт
+                    {t('command.start')}
                 </Button>
                 <Button view="outlined-danger" size="l" onClick={onClear} disabled={busy}>
                     <Icon data={TrashBin} size={16} />

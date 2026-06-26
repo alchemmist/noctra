@@ -1,20 +1,22 @@
 import {Icon} from '@gravity-ui/uikit';
 import {Microphone} from '@gravity-ui/icons';
 import type {Job} from '../api';
+import {useI18n} from '../i18n';
 import {JobRow} from './JobRow';
 
 export function QueueView({jobs}: {jobs: Job[]}) {
+    const {t} = useI18n();
     return (
         <section>
             <div className="queue-head">
-                <div className="panel-title">Очередь</div>
-                <span className="queue-count">{jobs.length} задач</span>
+                <div className="panel-title">{t('queue.title')}</div>
+                <span className="queue-count">{t('queue.count', {count: jobs.length})}</span>
             </div>
 
             {jobs.length === 0 ? (
                 <div className="empty">
                     <Icon data={Microphone} size={36} />
-                    <div>Очередь пуста — добавьте файлы или папки слева и нажмите «Старт».</div>
+                    <div>{t('queue.empty')}</div>
                 </div>
             ) : (
                 <div className="queue">
