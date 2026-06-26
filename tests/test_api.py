@@ -89,6 +89,27 @@ def test_control_unknown_action(client: TestClient) -> None:
     assert resp.status_code == 422  # Literal["start","clear"] rejects it
 
 
+def test_job_delete_removes_it(client: TestClient, tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    job_id = client.post("/api/enqueue", json={"paths": [str(audio)]}).json()["added"][0]["id"]
+
+    resp = client.post("/api/job", json={"id": job_id, "action": "delete"})
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+    assert resp.json()["state"]["jobs"] == []
+
+
+def test_job_retry_unknown_id_returns_ok_false(client: TestClient) -> None:
+    resp = client.post("/api/job", json={"id": 999, "action": "retry"})
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is False
+
+
+def test_job_control_invalid_action(client: TestClient) -> None:
+    resp = client.post("/api/job", json={"id": 1, "action": "explode"})
+    assert resp.status_code == 422  # Literal rejects it
+
+
 def test_static_index_served(client: TestClient) -> None:
     resp = client.get("/")
     assert resp.status_code == 200

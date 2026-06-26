@@ -206,6 +206,35 @@ class QueueStore:
             self.condition.notify_all()
             return True
 
+    def retry(self, job_id: int) -> bool:
+        """Re-queue a failed/canceled job and resume the queue so it runs."""
+        with self.condition:
+            job = self._find_locked(job_id)
+            if job is None or job.status not in (JobStatus.FAILED, JobStatus.CANCELED):
+                return False
+            job.status = JobStatus.PENDING
+            job.progress = 0.0
+            job.error = ""
+            job.cancel_requested = False
+            self._queue_running = True
+            self._clear_requested = False
+            self._persist_locked(job)
+            self.condition.notify_all()
+            return True
+
+    def delete(self, job_id: int) -> bool:
+        """Remove a single job. A job that is currently processing can't be
+        deleted — cancel it first."""
+        with self.condition:
+            job = self._find_locked(job_id)
+            if job is None or job.status == JobStatus.PROCESSING:
+                return False
+            self.jobs.remove(job)
+            if self._repo is not None:
+                self._repo.delete(job_id)
+            self.condition.notify_all()
+            return True
+
     def should_cancel(self, job_id: int) -> bool:
         with self.condition:
             job = self._find_locked(job_id)

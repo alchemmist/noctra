@@ -327,13 +327,25 @@ body {
 
 .job {
     display: grid;
-    grid-template-columns: 40px 1fr auto;
+    grid-template-columns: 40px 1fr auto auto;
     gap: 14px;
     align-items: center;
     padding: 14px 16px;
     transition:
         transform 0.15s ease,
         border-color 0.15s ease;
+}
+
+.job-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    opacity: 0.55;
+    transition: opacity 0.15s ease;
+}
+
+.job:hover .job-actions {
+    opacity: 1;
 }
 
 .job:hover {

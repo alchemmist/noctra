@@ -96,6 +96,45 @@ def test_cancel_pending(tmp_path: Path) -> None:
     assert store.snapshot()["canceled"] == 1
 
 
+def test_retry_requeues_failed_and_resumes(tmp_path: Path) -> None:
+    a = _audio(tmp_path, "a.m4a")
+    store = QueueStore()
+    store.enqueue([str(a)])
+    store.start_queue()
+    job = store.claim_next()
+    assert job is not None
+    store.fail(job.id, "boom")
+    assert store.claim_next() is None  # nothing active -> queue auto-stops
+    assert store.is_running() is False
+
+    assert store.retry(job.id) is True
+    snap = store.snapshot()
+    assert snap["pending"] == 1
+    assert snap["failed"] == 0
+    assert snap["running"] is True  # retry resumes the queue
+    assert snap["jobs"][0]["error"] == ""
+
+    # retry only applies to failed/canceled jobs
+    assert store.retry(job.id) is False  # now pending
+
+
+def test_delete_removes_job_but_not_while_processing(tmp_path: Path) -> None:
+    a = _audio(tmp_path, "a.m4a")
+    b = _audio(tmp_path, "b.m4a")
+    store = QueueStore()
+    store.enqueue([str(a), str(b)])
+    pending_id = store.snapshot()["jobs"][1]["id"]
+
+    assert store.delete(pending_id) is True
+    assert len(store.snapshot()["jobs"]) == 1
+    assert store.delete(pending_id) is False  # already gone
+
+    store.start_queue()
+    processing = store.claim_next()
+    assert processing is not None
+    assert store.delete(processing.id) is False  # can't delete a running job
+
+
 def test_clear_all_resets(tmp_path: Path) -> None:
     a = _audio(tmp_path, "a.m4a")
     store = QueueStore()

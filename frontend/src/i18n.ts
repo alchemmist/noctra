@@ -39,6 +39,9 @@ const MESSAGES: Record<Lang, Record<string, string>> = {
         'job.failed': 'failed',
         'job.canceled': 'canceled',
         'job.seconds': '{n} s',
+        'job.cancel': 'Cancel',
+        'job.retry': 'Retry',
+        'job.delete': 'Remove',
     },
     ru: {
         'brand.sub': 'локальная транскрибация аудио',
@@ -71,6 +74,9 @@ const MESSAGES: Record<Lang, Record<string, string>> = {
         'job.failed': 'ошибка',
         'job.canceled': 'отменено',
         'job.seconds': '{n} с',
+        'job.cancel': 'Отменить',
+        'job.retry': 'Повторить',
+        'job.delete': 'Удалить',
     },
 };
 

@@ -57,6 +57,11 @@ class ControlRequest(BaseModel):
     action: Literal["start", "clear"]
 
 
+class JobControlRequest(BaseModel):
+    id: int
+    action: Literal["cancel", "retry", "delete"]
+
+
 class ControlResponse(BaseModel):
     ok: bool
     state: StateResponse

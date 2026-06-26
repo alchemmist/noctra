@@ -121,6 +121,10 @@ class JobRepository:
         self._conn.executemany(_UPSERT, rows)
         self._conn.commit()
 
+    def delete(self, job_id: int) -> None:
+        self._conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+        self._conn.commit()
+
     def delete_all(self) -> None:
         self._conn.execute("DELETE FROM jobs")
         self._conn.commit()

@@ -1,6 +1,16 @@
-import {Icon} from '@gravity-ui/uikit';
-import {CircleCheckFill, CircleDashed, CircleXmarkFill, Clock, MagicWand} from '@gravity-ui/icons';
-import type {Job, JobStatus} from '../api';
+import {Button, Icon} from '@gravity-ui/uikit';
+import {
+    ArrowRotateLeft,
+    CircleCheckFill,
+    CircleDashed,
+    CircleXmarkFill,
+    Clock,
+    MagicWand,
+    TrashBin,
+    Xmark,
+} from '@gravity-ui/icons';
+import {jobControl} from '../api';
+import type {Job, JobAction, JobStatus} from '../api';
 import {useI18n} from '../i18n';
 
 const STATUS: Record<JobStatus, {icon: typeof Clock; labelKey: string}> = {
@@ -9,6 +19,21 @@ const STATUS: Record<JobStatus, {icon: typeof Clock; labelKey: string}> = {
     done: {icon: CircleCheckFill, labelKey: 'job.done'},
     failed: {icon: CircleXmarkFill, labelKey: 'job.failed'},
     canceled: {icon: CircleDashed, labelKey: 'job.canceled'},
+};
+
+const ACTION = {
+    cancel: {icon: Xmark, labelKey: 'job.cancel'},
+    retry: {icon: ArrowRotateLeft, labelKey: 'job.retry'},
+    delete: {icon: TrashBin, labelKey: 'job.delete'},
+} as const;
+
+//: Which actions each status offers.
+const ACTIONS: Record<JobStatus, JobAction[]> = {
+    pending: ['delete'],
+    processing: ['cancel'],
+    done: ['delete'],
+    failed: ['retry', 'delete'],
+    canceled: ['retry', 'delete'],
 };
 
 function basename(path: string): string {
@@ -21,6 +46,10 @@ export function JobRow({job, index}: {job: Job; index: number}) {
     const status = STATUS[job.status];
     const label = t(status.labelKey);
     const percent = Math.round(job.progress * 100);
+
+    const onAction = (action: JobAction) => {
+        jobControl(job.id, action).catch(() => undefined);
+    };
 
     return (
         <div className={`surface job job_${job.status}`}>
@@ -56,6 +85,21 @@ export function JobRow({job, index}: {job: Job; index: number}) {
                 {job.status !== 'processing' && job.status !== 'done' && (
                     <span className="job-time">{label}</span>
                 )}
+            </div>
+
+            <div className="job-actions">
+                {ACTIONS[job.status].map((action) => (
+                    <Button
+                        key={action}
+                        view="flat"
+                        size="s"
+                        onClick={() => onAction(action)}
+                        aria-label={t(ACTION[action].labelKey)}
+                        title={t(ACTION[action].labelKey)}
+                    >
+                        <Icon data={ACTION[action].icon} size={16} />
+                    </Button>
+                ))}
             </div>
         </div>
     );

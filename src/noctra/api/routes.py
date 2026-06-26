@@ -20,6 +20,7 @@ from .schemas import (
     ControlResponse,
     EnqueueRequest,
     EnqueueResponse,
+    JobControlRequest,
     StateResponse,
 )
 
@@ -64,6 +65,17 @@ def control(body: ControlRequest, store: StoreDep) -> dict:
     else:
         store.clear_all()
     return {"ok": True, "state": store.snapshot()}
+
+
+@router.post("/api/job", response_model=ControlResponse)
+def job_control(body: JobControlRequest, store: StoreDep) -> dict:
+    if body.action == "cancel":
+        ok = store.request_cancel(body.id)
+    elif body.action == "retry":
+        ok = store.retry(body.id)
+    else:
+        ok = store.delete(body.id)
+    return {"ok": ok, "state": store.snapshot()}
 
 
 @router.websocket("/ws")

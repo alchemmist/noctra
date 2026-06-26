@@ -72,3 +72,9 @@ export function enqueue(paths: string[], model?: string): Promise<EnqueueResult>
 export function control(action: 'start' | 'clear'): Promise<unknown> {
     return postJson('/api/control', {action});
 }
+
+export type JobAction = 'cancel' | 'retry' | 'delete';
+
+export function jobControl(id: number, action: JobAction): Promise<unknown> {
+    return postJson('/api/job', {id, action});
+}
