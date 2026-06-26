@@ -106,8 +106,11 @@ body {
 
 .run-chip_on {
     color: #fff;
-    border-color: transparent;
+    /* A real (opaque) border colour, not `transparent` (= transparent *black*),
+       which otherwise leaves a thin dark fringe on the rounded edges. */
+    border-color: color-mix(in srgb, var(--noctra-accent) 50%, var(--noctra-accent-2));
     background: var(--noctra-gradient);
+    background-clip: padding-box;
     box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--noctra-accent) 75%, transparent);
 }
 
