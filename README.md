@@ -62,6 +62,11 @@ Settings resolve as **CLI flag → environment (`NOCTRA_*` / `.env`) → default
 | Compute type  | `--compute-type`  | `NOCTRA_COMPUTE_TYPE` | `int8`      |
 | Host          | `--host`          | `NOCTRA_HOST`         | `127.0.0.1` |
 | Port          | `--port`          | `NOCTRA_PORT`         | `8787`      |
+| Queue DB path | —                 | `NOCTRA_DB_PATH`      | `.noctra/queue.db` |
+
+The queue is persisted to SQLite, so it survives restarts. Jobs interrupted
+mid-transcription are automatically re-queued (`processing` → `pending`) on the
+next start. In containers the DB lives in the `noctra-data` volume.
 
 ## Development
 
@@ -81,7 +86,8 @@ src/noctra/
   domain.py        # Job model + statuses (framework-agnostic core)
   paths.py         # audio discovery, output naming
   config.py        # settings (pydantic-settings)
-  queue_store.py   # thread-safe in-memory queue
+  queue_store.py   # thread-safe queue (write-through to SQLite)
+  persistence.py   # SQLite job repository
   engine.py        # faster-whisper wrapper
   worker.py        # background transcription thread
   server.py        # stdlib HTTP layer (to be replaced by FastAPI)

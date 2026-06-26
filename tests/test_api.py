@@ -11,8 +11,9 @@ from noctra.config import Settings
 
 
 @pytest.fixture
-def client() -> Iterator[TestClient]:
-    app = create_app(Settings())
+def client(tmp_path: Path) -> Iterator[TestClient]:
+    settings = Settings(db_path=str(tmp_path / "queue.db"))
+    app = create_app(settings)
     # `with` triggers lifespan: store + worker are created on enter.
     with TestClient(app) as test_client:
         yield test_client

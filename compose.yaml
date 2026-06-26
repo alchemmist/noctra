@@ -17,9 +17,12 @@ services:
       - ./audio:/data
       # Persist downloaded Whisper models across restarts.
       - model-cache:/root/.cache/huggingface
+      # Persist the SQLite queue/history across restarts.
+      - noctra-data:/app/.noctra
       # Keep logs on the host.
       - ./.noctra_logs:/app/.noctra_logs
     restart: unless-stopped
 
 volumes:
   model-cache:
+  noctra-data:

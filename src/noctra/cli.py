@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import argparse
 import time
+from pathlib import Path
 
 from .config import Settings, load_settings
 from .engine import TranscriptionEngine
 from .logging_setup import LOGGER, setup_logging
+from .persistence import JobRepository
 from .queue_store import QueueStore
 from .worker import Worker
 
@@ -19,7 +21,8 @@ def _engine(settings: Settings) -> TranscriptionEngine:
 
 
 def run_headless(files: list[str], settings: Settings) -> int:
-    store = QueueStore()
+    repo = JobRepository(Path(settings.db_path))
+    store = QueueStore(repo)
     store.start_queue()
     result = store.enqueue(files)
     LOGGER.info(
@@ -40,10 +43,12 @@ def run_headless(files: list[str], settings: Settings) -> int:
     except KeyboardInterrupt:
         worker.stop(graceful=True)
         worker.join(timeout=2.0)
+        repo.close()
         return 130
 
     worker.stop(graceful=True)
     worker.join(timeout=2.0)
+    repo.close()
     return 0
 
 

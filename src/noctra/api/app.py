@@ -16,6 +16,7 @@ from .. import __version__
 from ..config import Settings
 from ..engine import TranscriptionEngine
 from ..logging_setup import LOGGER
+from ..persistence import JobRepository
 from ..queue_store import QueueStore
 from ..worker import Worker
 from .routes import router
@@ -54,7 +55,8 @@ def _static_dir() -> Path | None:
 def create_app(settings: Settings, files: list[str] | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        store = QueueStore()
+        repo = JobRepository(Path(settings.db_path))
+        store = QueueStore(repo)
         store.stop_queue()
         if files:
             result = store.enqueue(files)
@@ -73,6 +75,7 @@ def create_app(settings: Settings, files: list[str] | None = None) -> FastAPI:
         finally:
             worker.stop(graceful=True)
             worker.join(timeout=2.0)
+            repo.close()
 
     app = FastAPI(title="Noctra", version=__version__, lifespan=lifespan)
     app.add_middleware(BodyLimitMiddleware)

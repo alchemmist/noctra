@@ -14,6 +14,7 @@ from typing import Any
 from .domain import ACTIVE_STATUSES, Job, JobStatus
 from .logging_setup import LOGGER
 from .paths import expand_directory, output_path_for
+from .persistence import JobRepository
 
 _COUNTED_STATUSES = (
     JobStatus.PENDING,
@@ -25,7 +26,7 @@ _COUNTED_STATUSES = (
 
 
 class QueueStore:
-    def __init__(self) -> None:
+    def __init__(self, repository: JobRepository | None = None) -> None:
         self.lock = threading.Lock()
         self.condition = threading.Condition(self.lock)
         self.jobs: list[Job] = []
@@ -34,6 +35,38 @@ class QueueStore:
         self._queue_running = False
         self._clear_requested = False
         self._directory_cache: dict[str, tuple[int, list[tuple[Path, str]]]] = {}
+        self._repo = repository
+        if self._repo is not None:
+            self._restore_from_repo_locked()
+
+    def _restore_from_repo_locked(self) -> None:
+        assert self._repo is not None
+        jobs = self._repo.load_all()
+        # Jobs left mid-flight by a crash/restart go back to the pending pool.
+        requeued: list[Job] = []
+        for job in jobs:
+            if job.status == JobStatus.PROCESSING:
+                job.status = JobStatus.PENDING
+                job.progress = 0.0
+                job.cancel_requested = False
+                requeued.append(job)
+        self.jobs = jobs
+        if jobs:
+            self._next_job_id = max(job.id for job in jobs) + 1
+            self._next_order = max(job.queue_order for job in jobs) + 1
+        if requeued:
+            self._repo.upsert_many(requeued)
+            LOGGER.info("Restored %d jobs (%d requeued)", len(jobs), len(requeued))
+        elif jobs:
+            LOGGER.info("Restored %d jobs", len(jobs))
+
+    def _persist_locked(self, job: Job) -> None:
+        if self._repo is not None:
+            self._repo.upsert(job)
+
+    def _persist_many_locked(self, jobs: list[Job]) -> None:
+        if self._repo is not None:
+            self._repo.upsert_many(jobs)
 
     # -- public read-only helpers --------------------------------------
 
@@ -79,6 +112,8 @@ class QueueStore:
             self.jobs.clear()
             self._next_job_id = 1
             self._next_order = 1
+            if self._repo is not None:
+                self._repo.delete_all()
             LOGGER.info("Queue cleared")
             self.condition.notify_all()
 
@@ -88,6 +123,7 @@ class QueueStore:
         with self.condition:
             expanded, missing = self._expand_raw_paths_locked(raw_paths)
             added: list[dict[str, Any]] = []
+            new_jobs: list[Job] = []
             skipped: list[str] = []
             seen = {job.path for job in self.jobs}
             queue_order = self._next_order
@@ -106,11 +142,13 @@ class QueueStore:
                     source_dir=source_dir,
                 )
                 self.jobs.append(job)
+                new_jobs.append(job)
                 added.append(job.to_dict())
                 seen.add(path_str)
                 queue_order += 1
 
             self._next_order = queue_order
+            self._persist_many_locked(new_jobs)
             self.condition.notify_all()
 
         return {"added": added, "skipped": skipped, "missing": missing}
@@ -134,6 +172,7 @@ class QueueStore:
             job.status = JobStatus.PROCESSING
             job.error = ""
             job.progress = 0.0
+            self._persist_locked(job)
             return job
 
     def update(self, job_id: int, **changes: Any) -> None:
@@ -143,6 +182,7 @@ class QueueStore:
                 return
             for key, value in changes.items():
                 setattr(existing, key, value)
+            self._persist_locked(existing)
             self.condition.notify_all()
 
     def complete(self, job_id: int, *, progress: float = 1.0) -> None:
@@ -161,6 +201,7 @@ class QueueStore:
             job.cancel_requested = True
             job.status = JobStatus.CANCELED
             job.error = ""
+            self._persist_locked(job)
             self.condition.notify_all()
             return True
 
