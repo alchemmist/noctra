@@ -9,7 +9,6 @@ from .config import Settings, load_settings
 from .engine import TranscriptionEngine
 from .logging_setup import LOGGER, setup_logging
 from .queue_store import QueueStore
-from .server import LoggingThreadingHTTPServer, make_handler
 from .worker import Worker
 
 
@@ -55,28 +54,14 @@ def warm_up_model(settings: Settings) -> int:
 
 
 def run_server(files: list[str], settings: Settings) -> int:
-    store = QueueStore()
-    store.stop_queue()
-    if files:
-        result = store.enqueue(files)
-        if result["added"]:
-            LOGGER.info("Queued at startup: %d", len(result["added"]))
+    import uvicorn
 
-    worker = Worker(store, _engine(settings))
-    worker.start()
+    from .api.app import create_app
 
-    server = LoggingThreadingHTTPServer((settings.host, settings.port), make_handler(store))
+    app = create_app(settings, files)
     LOGGER.info("Open http://%s:%s", settings.host, settings.port)
     print(f"Open http://{settings.host}:{settings.port}")
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        worker.stop(graceful=True)
-        server.shutdown()
-        server.server_close()
-        worker.join(timeout=2.0)
+    uvicorn.run(app, host=settings.host, port=settings.port, log_level="info")
     return 0
 
 
