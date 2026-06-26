@@ -1,1 +1,80 @@
-![](attachments/demo.png)
+# Noctra
+
+Local, sequential audio transcription queue with a minimal web UI. Runs
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper) on your own machine —
+no cloud, no upload, no per-minute billing.
+
+![demo](attachments/demo.png)
+
+## What it does
+
+Point Noctra at audio files (or whole folders), and it transcribes them one by
+one into `.txt` files next to the originals. A small web UI shows the queue and
+progress; a headless CLI mode is available too.
+
+- Formats: `.m4a`, `.mp3`
+- Output: `clip.m4a` → `clip.txt` (written atomically)
+- Default model: `large-v3`, language `ru`, CPU / `int8`
+
+## Requirements
+
+- Python ≥ 3.12
+- [`uv`](https://docs.astral.sh/uv/) (package manager / runner)
+- `ffmpeg` available on PATH (required by faster-whisper)
+
+## Quick start
+
+```bash
+make install        # create venv, install deps (incl. dev tools)
+make model          # download & cache the Whisper model (first run only)
+make serve          # open http://127.0.0.1:8787
+```
+
+Or transcribe files headless, without the UI:
+
+```bash
+make run FILES="~/recordings/a.m4a ~/recordings/folder"
+```
+
+## Configuration
+
+Settings resolve as **CLI flag → environment (`NOCTRA_*` / `.env`) → default**.
+
+| Setting       | CLI flag          | Env var               | Default     |
+|---------------|-------------------|-----------------------|-------------|
+| Model         | `--model`         | `NOCTRA_MODEL`        | `large-v3`  |
+| Language      | `--language`      | `NOCTRA_LANGUAGE`     | `ru`        |
+| Device        | `--device`        | `NOCTRA_DEVICE`       | `cpu`       |
+| Compute type  | `--compute-type`  | `NOCTRA_COMPUTE_TYPE` | `int8`      |
+| Host          | `--host`          | `NOCTRA_HOST`         | `127.0.0.1` |
+| Port          | `--port`          | `NOCTRA_PORT`         | `8787`      |
+
+## Development
+
+```bash
+make check          # ruff + mypy + pytest (with coverage)
+make test
+make lint
+make typecheck
+```
+
+Logs are written to `.noctra_logs/`.
+
+## Project layout
+
+```
+src/noctra/
+  domain.py        # Job model + statuses (framework-agnostic core)
+  paths.py         # audio discovery, output naming
+  config.py        # settings (pydantic-settings)
+  queue_store.py   # thread-safe in-memory queue
+  engine.py        # faster-whisper wrapper
+  worker.py        # background transcription thread
+  server.py        # stdlib HTTP layer (to be replaced by FastAPI)
+  cli.py           # entry points / run modes
+web/               # static UI (vanilla JS, to be replaced by Svelte)
+tests/             # pytest suite for the core
+```
+
+See the long-term roadmap for where this is headed (FastAPI backend, SQLite
+persistence, Svelte UI, Docker).

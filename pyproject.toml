@@ -3,17 +3,52 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "noctra-script"
-version = "0.1.0"
+name = "noctra"
+version = "0.2.0"
 description = "Local sequential audio transcription queue with a minimal web UI."
 requires-python = ">=3.12"
 dependencies = [
   "faster-whisper",
   "tqdm",
+  "pydantic-settings>=2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "pytest-cov>=5",
+  "pytest-asyncio>=0.23",
+  "ruff>=0.6",
+  "mypy>=1.11",
 ]
 
 [project.scripts]
-noctra = "main:main"
+noctra = "noctra.cli:main"
 
-[tool.setuptools]
-py-modules = ["main"]
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["noctra"]
+omit = ["src/noctra/server.py", "src/noctra/cli.py", "src/noctra/__main__.py"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "N", "A", "C4", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+packages = ["noctra"]
+mypy_path = "src"
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = false
+ignore_missing_imports = true

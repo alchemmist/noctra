@@ -1,5 +1,4 @@
 UV ?= uv
-PY ?= main.py
 MODEL ?= large-v3
 LANGUAGE ?= ru
 DEVICE ?= cpu
@@ -8,13 +7,33 @@ HOST ?= 127.0.0.1
 PORT ?= 8787
 FILES ?=
 
-.PHONY: serve run model
+RUN = $(UV) run python -m noctra
+
+.PHONY: serve run model test lint fmt typecheck check install
+
+install:
+	$(UV) sync --extra dev
 
 serve:
-	$(UV) run $(PY) --serve --model $(MODEL) --language $(LANGUAGE) --device $(DEVICE) --compute-type $(COMPUTE_TYPE) --host $(HOST) --port $(PORT)
+	$(RUN) --serve --model $(MODEL) --language $(LANGUAGE) --device $(DEVICE) --compute-type $(COMPUTE_TYPE) --host $(HOST) --port $(PORT)
 
 run:
-	$(UV) run $(PY) --model $(MODEL) --language $(LANGUAGE) --device $(DEVICE) --compute-type $(COMPUTE_TYPE) $(FILES)
+	$(RUN) --model $(MODEL) --language $(LANGUAGE) --device $(DEVICE) --compute-type $(COMPUTE_TYPE) $(FILES)
 
 model:
-	$(UV) run $(PY) --download-model --model $(MODEL) --language $(LANGUAGE) --device $(DEVICE) --compute-type $(COMPUTE_TYPE)
+	$(RUN) --download-model --model $(MODEL) --language $(LANGUAGE) --device $(DEVICE) --compute-type $(COMPUTE_TYPE)
+
+test:
+	$(UV) run pytest --cov
+
+lint:
+	$(UV) run ruff check src tests
+
+fmt:
+	$(UV) run ruff format src tests
+	$(UV) run ruff check --fix src tests
+
+typecheck:
+	$(UV) run mypy
+
+check: lint typecheck test
