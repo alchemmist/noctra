@@ -10,31 +10,21 @@
     --tone-warning: #efa13c;
 }
 
-/* Repaint Gravity UI's brand colour from its default amber/yellow to Noctra's
-   violet accent. Drives the primary ("action") button, focus rings, selection
-   highlight and links across both themes. */
-.g-root {
-    --g-color-base-brand: var(--noctra-accent);
-    --g-color-base-brand-hover: #7a5cf0;
-    --g-color-line-brand: var(--noctra-accent);
-    --g-color-line-focus: var(--noctra-accent);
-    --g-color-text-brand-contrast: #fff;
-    --g-color-base-selection: color-mix(in srgb, var(--noctra-accent) 28%, transparent);
-    --g-color-base-selection-hover: color-mix(in srgb, var(--noctra-accent) 40%, transparent);
-}
-
+/* Gravity's stock dark surfaces carry a warm/magenta cast (green channel sits
+   below red & blue). Repaint the base elevation tokens to a cool slate so the
+   page and the cards/inputs read as a clean, neutral dark. */
 .g-root_theme_dark {
-    --g-color-text-brand: #a78bff;
-    --g-color-text-brand-heavy: #b9a6ff;
-    --g-color-text-link: #a78bff;
-    --g-color-text-link-hover: #c4b5ff;
-}
-
-.g-root_theme_light {
-    --g-color-text-brand: #6b4ddb;
-    --g-color-text-brand-heavy: #5a3fc0;
-    --g-color-text-link: #6b4ddb;
-    --g-color-text-link-hover: #5a3fc0;
+    --g-color-base-background: #0d0f14;
+    --g-color-base-generic: #1f232c;
+    --g-color-base-generic-hover: #262b35;
+    --g-color-base-generic-accent: #2a303b;
+    --g-color-base-generic-accent-disabled: #1a1e25;
+    --g-color-base-simple-hover: #1c2027;
+    --g-color-base-float: #171a21;
+    --g-color-base-float-hover: #1d212a;
+    --g-color-base-float-heavy: #20242d;
+    --g-color-line-generic: #2b313c;
+    --g-color-line-generic-hover: #3a4150;
 }
 
 * {
