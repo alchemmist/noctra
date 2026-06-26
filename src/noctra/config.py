@@ -23,6 +23,9 @@ AVAILABLE_MODELS: tuple[str, ...] = (
     "large-v3",
 )
 
+#: Transcript output formats selectable from the UI / CLI.
+AVAILABLE_FORMATS: tuple[str, ...] = ("txt", "srt", "vtt")
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -33,6 +36,8 @@ class Settings(BaseSettings):
     )
 
     model: str = "large-v3"
+    #: Default output formats as a comma-separated string (e.g. ``"txt,srt"``).
+    output_formats: str = "txt"
     language: str = "ru"
     device: str = "cpu"
     compute_type: str = "int8"

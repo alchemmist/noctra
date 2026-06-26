@@ -12,7 +12,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 
-from ..config import AVAILABLE_MODELS, Settings
+from ..config import AVAILABLE_FORMATS, AVAILABLE_MODELS, Settings
 from ..queue_store import QueueStore
 from .schemas import (
     ConfigResponse,
@@ -44,7 +44,12 @@ SettingsDep = Annotated[Settings, Depends(get_settings)]
 
 @router.get("/api/config", response_model=ConfigResponse)
 def get_config(settings: SettingsDep) -> dict:
-    return {"models": list(AVAILABLE_MODELS), "default_model": settings.model}
+    return {
+        "models": list(AVAILABLE_MODELS),
+        "default_model": settings.model,
+        "formats": list(AVAILABLE_FORMATS),
+        "default_formats": [f for f in settings.output_formats.split(",") if f] or ["txt"],
+    }
 
 
 @router.get("/api/state", response_model=StateResponse)
@@ -55,7 +60,9 @@ def get_state(store: StoreDep) -> dict:
 @router.post("/api/enqueue", response_model=EnqueueResponse)
 def enqueue(body: EnqueueRequest, store: StoreDep, settings: SettingsDep) -> dict:
     model = body.model or settings.model
-    return store.enqueue(body.paths, model=model)
+    chosen = [f for f in body.formats if f in AVAILABLE_FORMATS]
+    formats = ",".join(chosen) if chosen else settings.output_formats
+    return store.enqueue(body.paths, model=model, formats=formats)
 
 
 @router.post("/api/control", response_model=ControlResponse)

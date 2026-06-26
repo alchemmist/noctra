@@ -67,6 +67,33 @@ def test_transcribe_uses_requested_model(tmp_path: Path) -> None:
     assert default_model.calls == []  # default untouched
 
 
+def test_transcribe_writes_srt_and_vtt(tmp_path: Path) -> None:
+    audio = make_audio(tmp_path)
+    model = FakeModel(
+        [
+            FakeSegment(end=2.0, text="hello", start=0.0),
+            FakeSegment(end=3.5, text="world", start=2.0),
+        ],
+        duration=3.5,
+    )
+    engine = _engine_with(model)
+
+    primary, _ = engine.transcribe_file(audio, formats=("txt", "srt", "vtt"))
+
+    assert primary == output_path_for(audio, "txt")
+    assert output_path_for(audio, "txt").read_text(encoding="utf-8") == "hello\nworld\n"
+
+    srt = output_path_for(audio, "srt").read_text(encoding="utf-8")
+    assert "1\n00:00:00,000 --> 00:00:02,000\nhello\n" in srt
+    assert "2\n00:00:02,000 --> 00:00:03,500\nworld\n" in srt
+
+    vtt = output_path_for(audio, "vtt").read_text(encoding="utf-8")
+    assert vtt.startswith("WEBVTT\n\n")
+    assert "00:00:00.000 --> 00:00:02.000\nhello\n" in vtt
+    # no leftover temp files
+    assert not output_path_for(audio, "srt").with_suffix(".srt.part").exists()
+
+
 def test_transcribe_cancel_raises_and_cleans_up(tmp_path: Path) -> None:
     audio = make_audio(tmp_path)
     model = FakeModel([FakeSegment(5.0, "a"), FakeSegment(10.0, "b")], duration=10.0)

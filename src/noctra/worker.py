@@ -48,11 +48,13 @@ class Worker(threading.Thread):
 
     def _process(self, job: Job) -> None:
         audio_path = job.path_obj
+        formats = tuple(f for f in job.formats.split(",") if f) or ("txt",)
         try:
             LOGGER.info("Transcribing: %s", audio_path)
             out_file, duration = self.engine.transcribe_file(
                 audio_path,
                 model_name=job.model or None,
+                formats=formats,
                 on_progress=lambda value: self.store.update(job.id, progress=value),
                 should_cancel=lambda: self._stop_event.is_set() or self._is_canceled(job.id),
             )

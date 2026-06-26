@@ -75,6 +75,9 @@ export function JobRow({job, index}: {job: Job; index: number}) {
             <div className="job-meta">
                 <span className="job-num">#{index + 1}</span>
                 {job.model && <span className="job-model">{job.model}</span>}
+                {job.formats && job.formats !== 'txt' && (
+                    <span className="job-model">{job.formats.replace(/,/g, ' · ')}</span>
+                )}
                 {job.status === 'processing' && <span className="job-time">{percent}%</span>}
                 {job.status === 'done' && (
                     <span className="job-time">

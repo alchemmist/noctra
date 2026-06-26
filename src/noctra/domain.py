@@ -54,6 +54,8 @@ class Job:
     #: Whisper model to transcribe this job with. Empty means "use the engine
     #: default" (resolved when the job is enqueued).
     model: str = ""
+    #: Comma-separated output formats to write (e.g. ``"txt"`` or ``"txt,srt"``).
+    formats: str = "txt"
 
     @property
     def path_obj(self) -> Path:

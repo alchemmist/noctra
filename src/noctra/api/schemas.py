@@ -23,6 +23,7 @@ class JobSchema(BaseModel):
     cancel_requested: bool
     source_dir: str
     model: str
+    formats: str
 
 
 class StateResponse(BaseModel):
@@ -40,11 +41,15 @@ class EnqueueRequest(BaseModel):
     paths: list[str]
     #: Whisper model to use; empty/omitted falls back to the server default.
     model: str = ""
+    #: Output formats to write; empty/omitted falls back to the server default.
+    formats: list[str] = []
 
 
 class ConfigResponse(BaseModel):
     models: list[str]
     default_model: str
+    formats: list[str]
+    default_formats: list[str]
 
 
 class EnqueueResponse(BaseModel):

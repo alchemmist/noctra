@@ -16,12 +16,16 @@ export function CommandBar({running}: {running: boolean}) {
     const [busy, setBusy] = useState(false);
     const [models, setModels] = useState<string[]>([]);
     const [model, setModel] = useState<string>('');
+    const [allFormats, setAllFormats] = useState<string[]>([]);
+    const [formats, setFormats] = useState<string[]>([]);
 
     useEffect(() => {
         fetchConfig()
             .then((config) => {
                 setModels(config.models);
                 setModel(config.default_model);
+                setAllFormats(config.formats);
+                setFormats(config.default_formats);
             })
             .catch(() => undefined);
     }, []);
@@ -47,7 +51,7 @@ export function CommandBar({running}: {running: boolean}) {
                 setMessage({text: t('command.needPath'), error: true});
                 return;
             }
-            const res = await enqueue(list, model || undefined);
+            const res = await enqueue(list, model || undefined, formats);
             setMessage({
                 text: t('command.added', {
                     added: res.added.length,
@@ -90,6 +94,23 @@ export function CommandBar({running}: {running: boolean}) {
                     width="max"
                 >
                     {models.map((name) => (
+                        <Select.Option key={name} value={name}>
+                            {name}
+                        </Select.Option>
+                    ))}
+                </Select>
+            </div>
+            <div className="command-model">
+                <span className="command-model__label">{t('command.formats')}</span>
+                <Select
+                    multiple
+                    value={formats}
+                    onUpdate={setFormats}
+                    disabled={busy || allFormats.length === 0}
+                    size="l"
+                    width="max"
+                >
+                    {allFormats.map((name) => (
                         <Select.Option key={name} value={name}>
                             {name}
                         </Select.Option>

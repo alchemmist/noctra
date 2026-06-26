@@ -25,18 +25,19 @@ CREATE TABLE IF NOT EXISTS jobs (
     duration         REAL    NOT NULL DEFAULT 0,
     cancel_requested INTEGER NOT NULL DEFAULT 0,
     source_dir       TEXT    NOT NULL DEFAULT '',
-    model            TEXT    NOT NULL DEFAULT ''
+    model            TEXT    NOT NULL DEFAULT '',
+    formats          TEXT    NOT NULL DEFAULT 'txt'
 );
 """
 
 _COLUMNS = (
     "id, path, queue_order, status, text_path, error, "
-    "progress, duration, cancel_requested, source_dir, model"
+    "progress, duration, cancel_requested, source_dir, model, formats"
 )
 
 _UPSERT = f"""
 INSERT INTO jobs ({_COLUMNS})
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
     path=excluded.path,
     queue_order=excluded.queue_order,
@@ -47,12 +48,16 @@ ON CONFLICT(id) DO UPDATE SET
     duration=excluded.duration,
     cancel_requested=excluded.cancel_requested,
     source_dir=excluded.source_dir,
-    model=excluded.model
+    model=excluded.model,
+    formats=excluded.formats
 """
 
 #: Columns added after the initial schema shipped, applied as idempotent
 #: ``ALTER TABLE`` migrations so existing databases keep working.
-_MIGRATIONS = (("model", "TEXT NOT NULL DEFAULT ''"),)
+_MIGRATIONS = (
+    ("model", "TEXT NOT NULL DEFAULT ''"),
+    ("formats", "TEXT NOT NULL DEFAULT 'txt'"),
+)
 
 
 def _row_to_job(row: tuple) -> Job:
@@ -68,6 +73,7 @@ def _row_to_job(row: tuple) -> Job:
         cancel_requested=bool(row[8]),
         source_dir=row[9],
         model=row[10],
+        formats=row[11],
     )
 
 
@@ -84,6 +90,7 @@ def _job_to_row(job: Job) -> tuple:
         int(job.cancel_requested),
         job.source_dir,
         job.model,
+        job.formats,
     )
 
 

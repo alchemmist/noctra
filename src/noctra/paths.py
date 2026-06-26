@@ -19,9 +19,9 @@ AUDIO_EXTENSIONS = {
 }
 
 
-def output_path_for(audio_path: Path) -> Path:
-    """Return the ``.txt`` transcript path that sits next to ``audio_path``."""
-    return audio_path.with_suffix(".txt")
+def output_path_for(audio_path: Path, fmt: str = "txt") -> Path:
+    """Return the transcript path (``.txt`` by default) next to ``audio_path``."""
+    return audio_path.with_suffix(f".{fmt}")
 
 
 def is_audio_file(path: Path) -> bool:

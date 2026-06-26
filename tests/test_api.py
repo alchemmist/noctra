@@ -52,6 +52,20 @@ def test_config_lists_models(client: TestClient) -> None:
     body = client.get("/api/config").json()
     assert "large-v3" in body["models"]
     assert body["default_model"] == "large-v3"  # Settings default
+    assert body["formats"] == ["txt", "srt", "vtt"]
+    assert body["default_formats"] == ["txt"]
+
+
+def test_enqueue_with_formats_records_them(client: TestClient, tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    resp = client.post("/api/enqueue", json={"paths": [str(audio)], "formats": ["txt", "srt"]})
+    assert resp.json()["added"][0]["formats"] == "txt,srt"
+
+
+def test_enqueue_without_formats_uses_default(client: TestClient, tmp_path: Path) -> None:
+    audio = _audio(tmp_path)
+    resp = client.post("/api/enqueue", json={"paths": [str(audio)]})
+    assert resp.json()["added"][0]["formats"] == "txt"
 
 
 def test_enqueue_with_model_records_it(client: TestClient, tmp_path: Path) -> None:

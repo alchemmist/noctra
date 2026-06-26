@@ -10,6 +10,7 @@ from pathlib import Path
 class FakeSegment:
     end: float
     text: str
+    start: float = 0.0
 
 
 @dataclass

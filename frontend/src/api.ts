@@ -12,11 +12,14 @@ export interface Job {
     cancel_requested: boolean;
     source_dir: string;
     model: string;
+    formats: string;
 }
 
 export interface Config {
     models: string[];
     default_model: string;
+    formats: string[];
+    default_formats: string[];
 }
 
 export interface QueueState {
@@ -65,8 +68,19 @@ export async function fetchConfig(): Promise<Config> {
     return res.json();
 }
 
-export function enqueue(paths: string[], model?: string): Promise<EnqueueResult> {
-    return postJson<EnqueueResult>('/api/enqueue', model ? {paths, model} : {paths});
+export function enqueue(
+    paths: string[],
+    model?: string,
+    formats?: string[],
+): Promise<EnqueueResult> {
+    const body: {paths: string[]; model?: string; formats?: string[]} = {paths};
+    if (model) {
+        body.model = model;
+    }
+    if (formats && formats.length > 0) {
+        body.formats = formats;
+    }
+    return postJson<EnqueueResult>('/api/enqueue', body);
 }
 
 export function control(action: 'start' | 'clear'): Promise<unknown> {

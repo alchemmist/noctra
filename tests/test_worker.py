@@ -15,7 +15,15 @@ class FakeEngine(TranscriptionEngine):
         super().__init__("fake", "cpu", "int8", "ru")
         self.behavior = behavior
 
-    def transcribe_file(self, audio_path, *, model_name=None, on_progress=None, should_cancel=None):  # type: ignore[override]
+    def transcribe_file(  # type: ignore[override]
+        self,
+        audio_path,
+        *,
+        model_name=None,
+        formats=("txt",),
+        on_progress=None,
+        should_cancel=None,
+    ):
         if self.behavior == "cancel":
             raise JobCanceledError(audio_path.name)
         if self.behavior == "fail":
