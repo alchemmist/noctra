@@ -45,7 +45,8 @@ def test_expand_paths_recurses_directories(tmp_path: Path) -> None:
 
 
 def test_is_audio_file_accepts_extra_formats(tmp_path: Path) -> None:
-    for ext in (".wav", ".flac", ".ogg", ".opus"):
+    # audio + video containers (ffmpeg extracts the audio track)
+    for ext in (".wav", ".flac", ".ogg", ".opus", ".webm", ".mp4", ".mov", ".mkv"):
         f = tmp_path / f"clip{ext}"
         f.write_bytes(b"x")
         assert is_audio_file(f), ext

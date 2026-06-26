@@ -13,7 +13,8 @@ one into `.txt` files next to the originals. A small web UI shows the queue and
 progress; a headless CLI mode is available too. You can also drag & drop audio
 straight into the UI — uploads are stored under `.noctra/uploads`.
 
-- Formats: `.m4a`, `.mp3`, `.wav`, `.flac`, `.ogg`, `.opus`
+- Formats: audio (`.m4a`, `.mp3`, `.wav`, `.flac`, `.ogg`, `.opus`) and video
+  (`.webm`, `.mp4`, `.m4v`, `.mov`, `.mkv`, `.avi` — the audio track is transcribed)
 - Output: `clip.m4a` → `clip.txt` (written atomically); optional `.srt` / `.vtt`
   subtitles with timestamps, selectable per queue
 - Default model: `large-v3`, language `ru`, CPU / `int8`

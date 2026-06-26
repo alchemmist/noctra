@@ -162,7 +162,7 @@ export function CommandBar({running}: {running: boolean}) {
                 ref={fileInput}
                 type="file"
                 multiple
-                accept="audio/*,.m4a,.mp3,.wav,.flac,.ogg,.opus"
+                accept="audio/*,video/*,.m4a,.mp3,.wav,.flac,.ogg,.opus,.webm,.mp4,.m4v,.mov,.mkv,.avi"
                 hidden
                 onChange={(e) => {
                     uploadList(e.target.files);

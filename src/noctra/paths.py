@@ -7,15 +7,24 @@ from __future__ import annotations
 
 from pathlib import Path
 
-#: Audio extensions Noctra will pick up when expanding files and directories.
-#: faster-whisper decodes via ffmpeg, so any of these container/codecs work.
+#: Media extensions Noctra will pick up when expanding files and directories.
+#: faster-whisper decodes via ffmpeg, so audio containers and video files (whose
+#: audio track is extracted) all work.
 AUDIO_EXTENSIONS = {
+    # audio
     ".m4a",
     ".mp3",
     ".wav",
     ".flac",
     ".ogg",
     ".opus",
+    # video (audio track is transcribed)
+    ".webm",
+    ".mp4",
+    ".m4v",
+    ".mov",
+    ".mkv",
+    ".avi",
 }
 
 
