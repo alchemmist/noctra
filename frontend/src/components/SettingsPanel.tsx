@@ -1,10 +1,11 @@
 import {useEffect, useState} from 'react';
-import {Button, Select} from '@gravity-ui/uikit';
+import {Button, Select, useToaster} from '@gravity-ui/uikit';
 import {fetchConfig, fetchSettings, updateSettings} from '../api';
 import {useI18n} from '../i18n';
 
 export function SettingsPanel() {
     const {t} = useI18n();
+    const {add} = useToaster();
     const [models, setModels] = useState<string[]>([]);
     const [languages, setLanguages] = useState<string[]>([]);
     const [allFormats, setAllFormats] = useState<string[]>([]);
@@ -14,7 +15,6 @@ export function SettingsPanel() {
     const [device, setDevice] = useState('');
     const [computeType, setComputeType] = useState('');
     const [busy, setBusy] = useState(false);
-    const [message, setMessage] = useState<string | null>(null);
 
     useEffect(() => {
         Promise.all([fetchConfig(), fetchSettings()])
@@ -33,12 +33,16 @@ export function SettingsPanel() {
 
     const onSave = async () => {
         setBusy(true);
-        setMessage(null);
         try {
             await updateSettings({model, language, formats});
-            setMessage(t('settings.saved'));
+            add({name: 'settings-saved', title: t('settings.saved'), theme: 'success', autoHiding: 4000});
         } catch (err) {
-            setMessage(err instanceof Error ? err.message : String(err));
+            add({
+                name: 'settings-error',
+                title: err instanceof Error ? err.message : String(err),
+                theme: 'danger',
+                autoHiding: 6000,
+            });
         } finally {
             setBusy(false);
         }
@@ -121,7 +125,6 @@ export function SettingsPanel() {
                     {t('settings.save')}
                 </Button>
             </div>
-            {message && <div className="command-msg command-msg_ok">{message}</div>}
         </section>
     );
 }

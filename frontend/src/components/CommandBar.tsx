@@ -1,18 +1,13 @@
 import {useEffect, useRef, useState} from 'react';
-import {Button, Icon, Select, TextArea} from '@gravity-ui/uikit';
+import {Button, Icon, Select, TextArea, useToaster} from '@gravity-ui/uikit';
 import {ArrowUpFromSquare, ListUl, Play, Plus, TrashBin} from '@gravity-ui/icons';
 import {control, enqueue, fetchConfig, uploadFiles} from '../api';
 import {useI18n} from '../i18n';
 
-interface Message {
-    text: string;
-    error: boolean;
-}
-
 export function CommandBar({running}: {running: boolean}) {
     const {t} = useI18n();
+    const {add} = useToaster();
     const [paths, setPaths] = useState('');
-    const [message, setMessage] = useState<Message | null>(null);
     const [busy, setBusy] = useState(false);
     const [models, setModels] = useState<string[]>([]);
     const [model, setModel] = useState<string>('');
@@ -36,12 +31,24 @@ export function CommandBar({running}: {running: boolean}) {
             .catch(() => undefined);
     }, []);
 
+    const toastOk = (title: string) =>
+        add({name: `ok-${Date.now()}`, title, theme: 'success', autoHiding: 4000});
+    const toastErr = (title: string) =>
+        add({name: `err-${Date.now()}`, title, theme: 'danger', autoHiding: 6000});
+
+    const addedTitle = (res: {added: unknown[]; skipped: unknown[]; missing: unknown[]}) =>
+        t('command.added', {
+            added: res.added.length,
+            skipped: res.skipped.length,
+            missing: res.missing.length,
+        });
+
     const run = async (action: () => Promise<void>) => {
         setBusy(true);
         try {
             await action();
         } catch (err) {
-            setMessage({text: err instanceof Error ? err.message : String(err), error: true});
+            toastErr(err instanceof Error ? err.message : String(err));
         } finally {
             setBusy(false);
         }
@@ -54,18 +61,11 @@ export function CommandBar({running}: {running: boolean}) {
                 .map((line) => line.trim())
                 .filter(Boolean);
             if (list.length === 0) {
-                setMessage({text: t('command.needPath'), error: true});
+                toastErr(t('command.needPath'));
                 return;
             }
             const res = await enqueue(list, model || undefined, formats, language || undefined);
-            setMessage({
-                text: t('command.added', {
-                    added: res.added.length,
-                    skipped: res.skipped.length,
-                    missing: res.missing.length,
-                }),
-                error: false,
-            });
+            toastOk(addedTitle(res));
             setPaths('');
         });
 
@@ -76,14 +76,7 @@ export function CommandBar({running}: {running: boolean}) {
         }
         run(async () => {
             const res = await uploadFiles(list, model || undefined, formats, language || undefined);
-            setMessage({
-                text: t('command.added', {
-                    added: res.added.length,
-                    skipped: res.skipped.length,
-                    missing: res.missing.length,
-                }),
-                error: false,
-            });
+            toastOk(addedTitle(res));
         });
     };
 
@@ -95,9 +88,7 @@ export function CommandBar({running}: {running: boolean}) {
 
     const onStart = () => run(() => control('start').then(() => undefined));
     const onClear = () =>
-        run(() =>
-            control('clear').then(() => setMessage({text: t('command.cleared'), error: false})),
-        );
+        run(() => control('clear').then(() => toastOk(t('command.cleared'))));
 
     return (
         <section className="surface command">
@@ -208,11 +199,6 @@ export function CommandBar({running}: {running: boolean}) {
                     <Icon data={TrashBin} size={16} />
                 </Button>
             </div>
-            {message && (
-                <div className={`command-msg ${message.error ? 'command-msg_error' : 'command-msg_ok'}`}>
-                    {message.text}
-                </div>
-            )}
         </section>
     );
 }

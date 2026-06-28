@@ -1,5 +1,15 @@
 import {useState} from 'react';
-import {Tab, TabList, TabProvider, ThemeProvider} from '@gravity-ui/uikit';
+import {
+    Tab,
+    TabList,
+    TabProvider,
+    ThemeProvider,
+    Toaster,
+    ToasterComponent,
+    ToasterProvider,
+} from '@gravity-ui/uikit';
+
+const toaster = new Toaster();
 import {useTheme} from './theme';
 import {I18nProvider, useI18n} from './i18n';
 import {useQueueState} from './useQueueState';
@@ -22,6 +32,7 @@ function AppBody() {
 
     return (
         <ThemeProvider theme={theme}>
+          <ToasterProvider toaster={toaster}>
             <div className="app">
                 <AppHeader
                     theme={theme}
@@ -48,6 +59,8 @@ function AppBody() {
                     {tab === 'settings' && <SettingsPanel />}
                 </div>
             </div>
+            <ToasterComponent />
+          </ToasterProvider>
         </ThemeProvider>
     );
 }
