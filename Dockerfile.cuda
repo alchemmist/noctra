@@ -1,0 +1,41 @@
+# Noctra GPU image — CUDA transcription with the web UI.
+#
+# faster-whisper (ctranslate2) needs the CUDA runtime + cuDNN; the nvidia/cuda
+# "cudnn-runtime" base provides both. Python itself is provisioned by uv, so we
+# don't depend on the distro's Python version.
+#
+# Build:  docker build -f Dockerfile.cuda -t noctra:cuda .
+# Run:    docker run --gpus all -p 8787:8787 noctra:cuda
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+
+ENV PYTHONUNBUFFERED=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_INSTALL_DIR=/opt/uv-python \
+    NOCTRA_HOST=0.0.0.0 \
+    NOCTRA_PORT=8787 \
+    NOCTRA_DEVICE=cuda \
+    NOCTRA_COMPUTE_TYPE=float16
+
+# ffmpeg decodes audio; curl/ca-certificates let uv fetch Python + wheels.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# uv provides fast, reproducible (locked) dependency installs and its own Python.
+COPY --from=ghcr.io/astral-sh/uv:0.11 /uv /uvx /bin/
+
+WORKDIR /app
+
+# Install dependencies first (cached layer) using only the lockfile manifests.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
+
+# Then install the project itself.
+COPY src ./src
+COPY web ./web
+RUN uv sync --frozen --no-dev
+
+EXPOSE 8787
+
+CMD ["uv", "run", "--no-dev", "python", "-m", "noctra", "--serve"]

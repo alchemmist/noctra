@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd agent to autostart Noctra on macOS login.
+
+  Setup:
+    1. Edit the two __PLACEHOLDER__ values below:
+         __NOCTRA_DIR__  absolute path to this repo (e.g. /Users/you/code/noctra)
+         __UV_PATH__     output of `which uv` (e.g. /opt/homebrew/bin/uv)
+    2. cp deploy/com.noctra.plist ~/Library/LaunchAgents/com.noctra.plist
+    3. launchctl load ~/Library/LaunchAgents/com.noctra.plist
+       (stop with: launchctl unload ~/Library/LaunchAgents/com.noctra.plist)
+
+  Noctra then runs at http://127.0.0.1:8787 and restarts on crash/login.
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.noctra</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>__UV_PATH__</string>
+      <string>run</string>
+      <string>--no-dev</string>
+      <string>python</string>
+      <string>-m</string>
+      <string>noctra</string>
+      <string>--serve</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__NOCTRA_DIR__</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>__NOCTRA_DIR__/.noctra_logs/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__NOCTRA_DIR__/.noctra_logs/launchd.err.log</string>
+  </dict>
+</plist>

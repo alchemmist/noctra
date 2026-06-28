@@ -69,10 +69,50 @@ Settings resolve as **CLI flag → environment (`NOCTRA_*` / `.env`) → default
 | Host          | `--host`          | `NOCTRA_HOST`         | `127.0.0.1` |
 | Port          | `--port`          | `NOCTRA_PORT`         | `8787`      |
 | Queue DB path | —                 | `NOCTRA_DB_PATH`      | `.noctra/queue.db` |
+| Upload dir    | —                 | `NOCTRA_UPLOAD_DIR`   | `.noctra/uploads`  |
 
 The queue is persisted to SQLite, so it survives restarts. Jobs interrupted
 mid-transcription are automatically re-queued (`processing` → `pending`) on the
 next start. In containers the DB lives in the `noctra-data` volume.
+
+## Deployment
+
+### GPU (CUDA)
+
+If you have an NVIDIA GPU and the
+[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/),
+run the CUDA image (uses `device=cuda`, `compute_type=float16`):
+
+```bash
+docker compose -f compose.cuda.yaml up --build      # shortcut: make up-cuda
+```
+
+Without containers, just point the config at your GPU:
+
+```bash
+make serve DEVICE=cuda COMPUTE_TYPE=float16
+```
+
+### Install as a CLI
+
+The project ships a `noctra` entry point, so you can install it as a global tool:
+
+```bash
+make install-cli            # uv tool install --force .
+noctra --serve              # or: noctra ~/recordings/a.m4a  (headless)
+```
+
+### Autostart on macOS (launchd)
+
+A launchd agent template lives at `deploy/com.noctra.plist`. Replace the two
+`__PLACEHOLDER__` values (repo path and `which uv`), then:
+
+```bash
+cp deploy/com.noctra.plist ~/Library/LaunchAgents/com.noctra.plist
+launchctl load ~/Library/LaunchAgents/com.noctra.plist     # unload to stop
+```
+
+Noctra then starts at login and restarts on crash.
 
 ## Development
 
@@ -115,7 +155,7 @@ src/noctra/
 frontend/          # React + Vite + Gravity UI source
 web/dist/          # built SPA (served by the backend)
 tests/             # pytest suite for the core
+Dockerfile         # CPU image          Dockerfile.cuda      # GPU image
+compose.yaml       # CPU compose        compose.cuda.yaml    # GPU compose
+deploy/com.noctra.plist                 # macOS launchd autostart template
 ```
-
-See the long-term roadmap for where this is headed (UI file upload, more audio
-formats, subtitle export, in-UI job control).

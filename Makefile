@@ -1,6 +1,7 @@
 UV ?= uv
 NPM ?= npm
 COMPOSE ?= docker compose
+CUDA_COMPOSE ?= $(COMPOSE) -f compose.cuda.yaml
 MODEL ?= large-v3
 LANGUAGE ?= ru
 DEVICE ?= cpu
@@ -11,11 +12,15 @@ FILES ?=
 
 RUN = $(UV) run python -m noctra
 
-.PHONY: serve run model test lint fmt typecheck check install up down logs \
-        frontend-install frontend-build frontend-dev
+.PHONY: serve run model test lint fmt typecheck check install install-cli up down logs \
+        up-cuda down-cuda frontend-install frontend-build frontend-dev
 
 install:
 	$(UV) sync --extra dev
+
+# Install Noctra as a global `noctra` CLI (uses the entry point in pyproject).
+install-cli:
+	$(UV) tool install --force .
 
 serve:
 	$(RUN) --serve --model $(MODEL) --language $(LANGUAGE) --device $(DEVICE) --compute-type $(COMPUTE_TYPE) --host $(HOST) --port $(PORT)
@@ -58,6 +63,13 @@ up:
 
 down:
 	$(COMPOSE) down
+
+# GPU launch (needs the NVIDIA Container Toolkit on the host).
+up-cuda:
+	$(CUDA_COMPOSE) up --build
+
+down-cuda:
+	$(CUDA_COMPOSE) down
 
 logs:
 	$(COMPOSE) logs -f
