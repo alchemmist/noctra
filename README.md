@@ -125,6 +125,15 @@ make typecheck
 
 Logs are written to `.noctra_logs/`.
 
+### Releasing
+
+1. Bump the version in `pyproject.toml` and `src/noctra/__init__.py`, add a
+   `## [x.y.z]` section to `CHANGELOG.md`, and commit.
+2. Run `make release`. It validates the tree, runs `make check`, then tags
+   `vx.y.z` and pushes it.
+3. Pushing the tag triggers CI to build & push the Docker image to GHCR and to
+   create the GitHub Release from the matching CHANGELOG section.
+
 ### Frontend
 
 The UI is a React + Vite + [Gravity UI](https://gravity-ui.com/) app in

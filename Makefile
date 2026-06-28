@@ -2,6 +2,9 @@ UV ?= uv
 NPM ?= npm
 COMPOSE ?= docker compose
 CUDA_COMPOSE ?= $(COMPOSE) -f compose.cuda.yaml
+
+# Project version, read straight from pyproject.toml.
+VERSION := $(shell grep -m1 '^version' pyproject.toml | sed -E 's/.*"([^"]+)".*/\1/')
 MODEL ?= large-v3
 LANGUAGE ?= ru
 DEVICE ?= cpu
@@ -13,7 +16,7 @@ FILES ?=
 RUN = $(UV) run python -m noctra
 
 .PHONY: serve run model test lint fmt typecheck check install install-cli up down logs \
-        up-cuda down-cuda frontend-install frontend-build frontend-dev
+        up-cuda down-cuda frontend-install frontend-build frontend-dev release
 
 install:
 	$(UV) sync --extra dev
@@ -73,3 +76,18 @@ down-cuda:
 
 logs:
 	$(COMPOSE) logs -f
+
+# Cut a release: validate, tag v$(VERSION) and push. Pushing the tag triggers
+# CI to build/push the Docker image and create the GitHub Release from the
+# matching CHANGELOG section. Bump the version in pyproject.toml + __init__.py
+# and update CHANGELOG.md first.
+release:
+	@git diff-index --quiet HEAD -- || { echo "Working tree is dirty — commit first."; exit 1; }
+	@test "$$(git rev-parse --abbrev-ref HEAD)" = "main" || { echo "Not on main."; exit 1; }
+	@grep -q "^## \[$(VERSION)\]" CHANGELOG.md || { echo "No CHANGELOG section for $(VERSION)."; exit 1; }
+	@git rev-parse -q --verify "refs/tags/v$(VERSION)" >/dev/null && { echo "Tag v$(VERSION) already exists."; exit 1; } || true
+	$(MAKE) check
+	git tag -a "v$(VERSION)" -m "Noctra v$(VERSION)"
+	git push origin main
+	git push origin "v$(VERSION)"
+	@echo "Pushed v$(VERSION). CI will build the image and publish the GitHub Release."
