@@ -36,6 +36,39 @@ export interface QueueState {
     canceled: number;
 }
 
+export interface AppSettings {
+    model: string;
+    language: string;
+    formats: string[];
+    device: string;
+    compute_type: string;
+}
+
+async function sendJson<T>(method: string, url: string, body: unknown): Promise<T> {
+    const res = await fetch(url, {
+        method,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    if (!res.ok) {
+        throw new Error(text || `${url} failed (${res.status})`);
+    }
+    return (text ? JSON.parse(text) : {}) as T;
+}
+
+export async function fetchSettings(): Promise<AppSettings> {
+    const res = await fetch('/api/settings');
+    if (!res.ok) {
+        throw new Error(`settings failed (${res.status})`);
+    }
+    return res.json();
+}
+
+export function updateSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
+    return sendJson<AppSettings>('PUT', '/api/settings', patch);
+}
+
 async function postJson<T>(url: string, body: unknown): Promise<T> {
     const res = await fetch(url, {
         method: 'POST',

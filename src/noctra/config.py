@@ -7,6 +7,8 @@ hardcoded constants that used to live at the top of ``main.py``.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -73,3 +75,34 @@ def load_settings(**overrides: Any) -> Settings:
     """Build :class:`Settings`, applying non-``None`` CLI overrides on top."""
     clean = {key: value for key, value in overrides.items() if value is not None}
     return Settings(**clean)
+
+
+#: Default fields editable from the UI and persisted across restarts.
+OVERLAY_KEYS = ("model", "language", "output_formats")
+
+
+def _overlay_path(settings: Settings) -> Path:
+    return Path(settings.db_path).parent / "settings.json"
+
+
+def apply_overlay(settings: Settings) -> None:
+    """Overlay UI-saved defaults (``.noctra/settings.json``) onto ``settings``."""
+    path = _overlay_path(settings)
+    if not path.exists():
+        return
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    for key in OVERLAY_KEYS:
+        value = data.get(key)
+        if value:
+            setattr(settings, key, value)
+
+
+def save_overlay(settings: Settings) -> None:
+    """Persist the UI-editable defaults from ``settings`` to disk."""
+    path = _overlay_path(settings)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = {key: getattr(settings, key) for key in OVERLAY_KEYS}
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")

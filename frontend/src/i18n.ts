@@ -43,6 +43,14 @@ const MESSAGES: Record<Lang, Record<string, string>> = {
         'history.title': 'History',
         'history.empty': 'No finished jobs yet.',
 
+        'settings.title': 'Defaults for new queues',
+        'settings.hint': 'Pre-fills the new-queue form; each queue can still override.',
+        'settings.device': 'Device',
+        'settings.computeType': 'Compute type',
+        'settings.readonly': 'Set via env / CLI — restart to change.',
+        'settings.save': 'Save',
+        'settings.saved': 'Settings saved',
+
         'job.pending': 'queued',
         'job.processing': 'running',
         'job.done': 'done',
@@ -90,6 +98,14 @@ const MESSAGES: Record<Lang, Record<string, string>> = {
         'queue.empty': 'Очередь пуста — добавьте файлы или папки слева и нажмите «Старт».',
         'history.title': 'История',
         'history.empty': 'Завершённых задач пока нет.',
+
+        'settings.title': 'Значения по умолчанию',
+        'settings.hint': 'Подставляются в форму новой очереди; каждую очередь можно переопределить.',
+        'settings.device': 'Устройство',
+        'settings.computeType': 'Compute type',
+        'settings.readonly': 'Задаётся через env / CLI — меняется после перезапуска.',
+        'settings.save': 'Сохранить',
+        'settings.saved': 'Настройки сохранены',
 
         'job.pending': 'в очереди',
         'job.processing': 'идёт',

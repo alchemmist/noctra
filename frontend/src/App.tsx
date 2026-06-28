@@ -7,8 +7,9 @@ import {AppHeader} from './components/AppHeader';
 import {StatsRow} from './components/StatsRow';
 import {QueuePanel} from './components/QueuePanel';
 import {HistoryPanel} from './components/HistoryPanel';
+import {SettingsPanel} from './components/SettingsPanel';
 
-type TabId = 'queue' | 'history';
+type TabId = 'queue' | 'history' | 'settings';
 
 function AppBody() {
     const [theme, toggleTheme] = useTheme();
@@ -35,15 +36,16 @@ function AppBody() {
                         <Tab value="history" counter={historyCount || undefined}>
                             {t('tab.history')}
                         </Tab>
+                        <Tab value="settings">{t('tab.settings')}</Tab>
                     </TabList>
                 </TabProvider>
 
                 <div className="tab-body">
-                    {tab === 'queue' ? (
+                    {tab === 'queue' && (
                         <QueuePanel jobs={jobs} running={state?.running ?? false} />
-                    ) : (
-                        <HistoryPanel jobs={jobs} />
                     )}
+                    {tab === 'history' && <HistoryPanel jobs={jobs} />}
+                    {tab === 'settings' && <SettingsPanel />}
                 </div>
             </div>
         </ThemeProvider>

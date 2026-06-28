@@ -24,7 +24,13 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 
-from ..config import AVAILABLE_FORMATS, AVAILABLE_LANGUAGES, AVAILABLE_MODELS, Settings
+from ..config import (
+    AVAILABLE_FORMATS,
+    AVAILABLE_LANGUAGES,
+    AVAILABLE_MODELS,
+    Settings,
+    save_overlay,
+)
 from ..paths import AUDIO_EXTENSIONS, output_path_for
 from ..queue_store import QueueStore
 from .schemas import (
@@ -34,6 +40,8 @@ from .schemas import (
     EnqueueRequest,
     EnqueueResponse,
     JobControlRequest,
+    SettingsResponse,
+    SettingsUpdate,
     StateResponse,
 )
 
@@ -53,6 +61,41 @@ def get_settings(request: Request) -> Settings:
 
 StoreDep = Annotated[QueueStore, Depends(get_store)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
+
+
+def _settings_dict(settings: Settings) -> dict:
+    return {
+        "model": settings.model,
+        "language": settings.language,
+        "formats": [f for f in settings.output_formats.split(",") if f] or ["txt"],
+        "device": settings.device,
+        "compute_type": settings.compute_type,
+    }
+
+
+@router.get("/api/settings", response_model=SettingsResponse)
+def read_settings(settings: SettingsDep) -> dict:
+    return _settings_dict(settings)
+
+
+@router.put("/api/settings", response_model=SettingsResponse)
+def update_settings(body: SettingsUpdate, settings: SettingsDep) -> dict:
+    """Update the UI-editable default model/language/formats and persist them."""
+    if body.model is not None:
+        if body.model not in AVAILABLE_MODELS:
+            raise HTTPException(status_code=400, detail="unknown model")
+        settings.model = body.model
+    if body.language is not None:
+        if body.language not in AVAILABLE_LANGUAGES:
+            raise HTTPException(status_code=400, detail="unknown language")
+        settings.language = body.language
+    if body.formats is not None:
+        chosen = [f for f in body.formats if f in AVAILABLE_FORMATS]
+        if not chosen:
+            raise HTTPException(status_code=400, detail="no valid format")
+        settings.output_formats = ",".join(chosen)
+    save_overlay(settings)
+    return _settings_dict(settings)
 
 
 @router.get("/api/config", response_model=ConfigResponse)

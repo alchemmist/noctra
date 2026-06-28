@@ -229,6 +229,52 @@ body {
     --tone: var(--tone-danger);
 }
 
+/* ---------- settings ---------- */
+
+.settings {
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 22px;
+}
+
+.settings-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.settings-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.settings-readonly {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--g-color-base-generic);
+    border: 1px solid var(--g-color-line-generic);
+}
+
+.settings-readonly > div:not(.command-hint) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.settings-readonly code {
+    font-size: 13px;
+    color: var(--g-color-text-primary);
+    background: var(--g-color-base-float);
+    padding: 2px 9px;
+    border-radius: 8px;
+}
+
 /* ---------- tabs ---------- */
 
 .tabs {

@@ -13,7 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from .. import __version__
-from ..config import Settings
+from ..config import Settings, apply_overlay
 from ..engine import TranscriptionEngine
 from ..logging_setup import LOGGER
 from ..persistence import JobRepository
@@ -57,6 +57,8 @@ def _static_dir() -> Path | None:
 def create_app(settings: Settings, files: list[str] | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        # UI-saved defaults take effect on top of env/CLI settings.
+        apply_overlay(settings)
         repo = JobRepository(Path(settings.db_path))
         store = QueueStore(repo)
         store.stop_queue()

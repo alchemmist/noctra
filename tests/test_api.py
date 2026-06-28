@@ -96,6 +96,46 @@ def test_enqueue_without_model_uses_default(client: TestClient, tmp_path: Path) 
     assert resp.json()["added"][0]["model"] == "large-v3"  # server default
 
 
+def test_settings_read_and_update(client: TestClient) -> None:
+    initial = client.get("/api/settings").json()
+    assert initial["model"] == "large-v3"
+    assert initial["device"] == "cpu"  # read-only, env/CLI-driven
+
+    resp = client.put("/api/settings", json={"model": "small", "formats": ["txt", "srt"]})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["model"] == "small"
+    assert body["formats"] == ["txt", "srt"]
+
+    # the change drives the defaults advertised by /api/config
+    assert client.get("/api/config").json()["default_model"] == "small"
+
+
+def test_settings_update_rejects_unknown(client: TestClient) -> None:
+    assert client.put("/api/settings", json={"model": "huge"}).status_code == 400
+    assert client.put("/api/settings", json={"language": "zz"}).status_code == 400
+    assert client.put("/api/settings", json={"formats": ["doc"]}).status_code == 400
+
+
+def test_settings_persist_across_restart(tmp_path: Path) -> None:
+    settings = Settings(
+        db_path=str(tmp_path / "queue.db"),
+        upload_dir=str(tmp_path / "uploads"),
+    )
+    with TestClient(create_app(settings)) as c:
+        c.put("/api/settings", json={"model": "medium", "language": "en"})
+
+    # A fresh app over the same db dir picks up the saved overlay.
+    settings2 = Settings(
+        db_path=str(tmp_path / "queue.db"),
+        upload_dir=str(tmp_path / "uploads"),
+    )
+    with TestClient(create_app(settings2)) as c2:
+        body = c2.get("/api/settings").json()
+        assert body["model"] == "medium"
+        assert body["language"] == "en"
+
+
 def test_enqueue_validation_error(client: TestClient) -> None:
     resp = client.post("/api/enqueue", json={"paths": "not-a-list"})
     assert resp.status_code == 422  # pydantic rejects, no handler code needed

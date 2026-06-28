@@ -57,6 +57,20 @@ class ConfigResponse(BaseModel):
     default_language: str
 
 
+class SettingsResponse(BaseModel):
+    model: str
+    language: str
+    formats: list[str]
+    device: str
+    compute_type: str
+
+
+class SettingsUpdate(BaseModel):
+    model: str | None = None
+    language: str | None = None
+    formats: list[str] | None = None
+
+
 class EnqueueResponse(BaseModel):
     added: list[JobSchema]
     skipped: list[str]
