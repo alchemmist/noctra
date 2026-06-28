@@ -1,22 +1,29 @@
 import {Icon} from '@gravity-ui/uikit';
-import {Microphone} from '@gravity-ui/icons';
+import type {IconData} from '@gravity-ui/uikit';
 import type {Job} from '../api';
 import {useI18n} from '../i18n';
 import {JobRow} from './JobRow';
 
-export function QueueView({jobs}: {jobs: Job[]}) {
+interface Props {
+    title: string;
+    jobs: Job[];
+    emptyText: string;
+    emptyIcon: IconData;
+}
+
+export function JobList({title, jobs, emptyText, emptyIcon}: Props) {
     const {t} = useI18n();
     return (
         <section>
             <div className="queue-head">
-                <div className="panel-title">{t('queue.title')}</div>
+                <div className="panel-title">{title}</div>
                 <span className="queue-count">{t('queue.count', {count: jobs.length})}</span>
             </div>
 
             {jobs.length === 0 ? (
                 <div className="empty">
-                    <Icon data={Microphone} size={36} />
-                    <div>{t('queue.empty')}</div>
+                    <Icon data={emptyIcon} size={36} />
+                    <div>{emptyText}</div>
                 </div>
             ) : (
                 <div className="queue">

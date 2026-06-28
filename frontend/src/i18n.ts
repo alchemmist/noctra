@@ -33,9 +33,15 @@ const MESSAGES: Record<Lang, Record<string, string>> = {
         'command.added': 'Added: {added} · skipped: {skipped} · missing: {missing}',
         'command.cleared': 'Queue cleared',
 
+        'tab.queue': 'Queue',
+        'tab.history': 'History',
+        'tab.settings': 'Settings',
+
         'queue.title': 'Queue',
         'queue.count': '{count} jobs',
         'queue.empty': 'Queue is empty — add files or folders on the left and press Start.',
+        'history.title': 'History',
+        'history.empty': 'No finished jobs yet.',
 
         'job.pending': 'queued',
         'job.processing': 'running',
@@ -75,9 +81,15 @@ const MESSAGES: Record<Lang, Record<string, string>> = {
         'command.added': 'Добавлено: {added} · пропущено: {skipped} · не найдено: {missing}',
         'command.cleared': 'Очередь очищена',
 
+        'tab.queue': 'Очередь',
+        'tab.history': 'История',
+        'tab.settings': 'Настройки',
+
         'queue.title': 'Очередь',
         'queue.count': '{count} задач',
         'queue.empty': 'Очередь пуста — добавьте файлы или папки слева и нажмите «Старт».',
+        'history.title': 'История',
+        'history.empty': 'Завершённых задач пока нет.',
 
         'job.pending': 'в очереди',
         'job.processing': 'идёт',

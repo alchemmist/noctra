@@ -1,15 +1,23 @@
-import {ThemeProvider} from '@gravity-ui/uikit';
+import {useState} from 'react';
+import {Tab, TabList, TabProvider, ThemeProvider} from '@gravity-ui/uikit';
 import {useTheme} from './theme';
-import {I18nProvider} from './i18n';
+import {I18nProvider, useI18n} from './i18n';
 import {useQueueState} from './useQueueState';
 import {AppHeader} from './components/AppHeader';
 import {StatsRow} from './components/StatsRow';
-import {CommandBar} from './components/CommandBar';
-import {QueueView} from './components/QueueView';
+import {QueuePanel} from './components/QueuePanel';
+import {HistoryPanel} from './components/HistoryPanel';
+
+type TabId = 'queue' | 'history';
 
 function AppBody() {
     const [theme, toggleTheme] = useTheme();
+    const {t} = useI18n();
     const state = useQueueState();
+    const [tab, setTab] = useState<TabId>('queue');
+
+    const jobs = state?.jobs ?? [];
+    const historyCount = (state?.done ?? 0) + (state?.failed ?? 0) + (state?.canceled ?? 0);
 
     return (
         <ThemeProvider theme={theme}>
@@ -20,9 +28,22 @@ function AppBody() {
                     running={state?.running ?? false}
                 />
                 <StatsRow state={state} />
-                <div className="app-grid">
-                    <CommandBar running={state?.running ?? false} />
-                    <QueueView jobs={state?.jobs ?? []} />
+
+                <TabProvider value={tab} onUpdate={(value) => setTab(value as TabId)}>
+                    <TabList className="tabs">
+                        <Tab value="queue">{t('tab.queue')}</Tab>
+                        <Tab value="history" counter={historyCount || undefined}>
+                            {t('tab.history')}
+                        </Tab>
+                    </TabList>
+                </TabProvider>
+
+                <div className="tab-body">
+                    {tab === 'queue' ? (
+                        <QueuePanel jobs={jobs} running={state?.running ?? false} />
+                    ) : (
+                        <HistoryPanel jobs={jobs} />
+                    )}
                 </div>
             </div>
         </ThemeProvider>
