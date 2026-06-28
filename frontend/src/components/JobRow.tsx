@@ -74,6 +74,21 @@ export function JobRow({job, index}: {job: Job; index: number}) {
                 {job.status === 'failed' && job.error && (
                     <div className="job-error">{job.error}</div>
                 )}
+                {job.status === 'done' && job.formats && (
+                    <div className="job-downloads">
+                        <span className="job-downloads__label">{t('job.result')}:</span>
+                        {job.formats.split(',').map((fmt) => (
+                            <a
+                                key={fmt}
+                                className="dl"
+                                href={`/api/job/${job.id}/download?fmt=${fmt}`}
+                                download
+                            >
+                                {fmt.toUpperCase()}
+                            </a>
+                        ))}
+                    </div>
+                )}
             </div>
 
             <div className="job-meta">

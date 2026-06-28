@@ -16,14 +16,16 @@ from fastapi import (
     APIRouter,
     Depends,
     Form,
+    HTTPException,
     Request,
     UploadFile,
     WebSocket,
     WebSocketDisconnect,
 )
+from fastapi.responses import FileResponse
 
 from ..config import AVAILABLE_FORMATS, AVAILABLE_LANGUAGES, AVAILABLE_MODELS, Settings
-from ..paths import AUDIO_EXTENSIONS
+from ..paths import AUDIO_EXTENSIONS, output_path_for
 from ..queue_store import QueueStore
 from .schemas import (
     ConfigResponse,
@@ -153,6 +155,20 @@ def job_control(body: JobControlRequest, store: StoreDep) -> dict:
     else:
         ok = store.move(body.id, body.action)  # "up" / "down"
     return {"ok": ok, "state": store.snapshot()}
+
+
+@router.get("/api/job/{job_id}/download")
+def download_transcript(job_id: int, store: StoreDep, fmt: str = "txt") -> FileResponse:
+    """Serve a job's transcript file in the requested format for download."""
+    if fmt not in AVAILABLE_FORMATS:
+        raise HTTPException(status_code=400, detail="unsupported format")
+    job = store.find(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    out_file = output_path_for(job.path_obj, fmt)
+    if not out_file.exists():
+        raise HTTPException(status_code=404, detail="transcript not found")
+    return FileResponse(out_file, filename=out_file.name, media_type="text/plain")
 
 
 @router.websocket("/ws")

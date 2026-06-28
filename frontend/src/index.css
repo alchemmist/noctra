@@ -483,6 +483,39 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+.job-downloads {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.job-downloads__label {
+    font-size: 11.5px;
+    color: var(--g-color-text-hint);
+}
+
+.dl {
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    padding: 2px 9px;
+    border-radius: 999px;
+    text-decoration: none;
+    color: var(--noctra-accent);
+    background: color-mix(in srgb, var(--noctra-accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--noctra-accent) 35%, transparent);
+    transition:
+        background 0.15s ease,
+        color 0.15s ease;
+}
+
+.dl:hover {
+    color: #fff;
+    background: var(--noctra-accent);
+}
+
 /* ---------- empty ---------- */
 
 .empty {

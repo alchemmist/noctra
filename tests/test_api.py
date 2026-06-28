@@ -158,6 +158,29 @@ def test_job_delete_removes_it(client: TestClient, tmp_path: Path) -> None:
     assert resp.json()["state"]["jobs"] == []
 
 
+def test_download_transcript(client: TestClient, tmp_path: Path) -> None:
+    audio = _audio(tmp_path, "talk.m4a")
+    job_id = client.post("/api/enqueue", json={"paths": [str(audio)]}).json()["added"][0]["id"]
+    # Simulate a finished transcript next to the audio.
+    audio.with_suffix(".txt").write_text("hello world\n", encoding="utf-8")
+
+    resp = client.get(f"/api/job/{job_id}/download", params={"fmt": "txt"})
+    assert resp.status_code == 200
+    assert resp.text == "hello world\n"
+    assert "talk.txt" in resp.headers.get("content-disposition", "")
+
+
+def test_download_missing_transcript_404(client: TestClient, tmp_path: Path) -> None:
+    audio = _audio(tmp_path, "talk.m4a")
+    job_id = client.post("/api/enqueue", json={"paths": [str(audio)]}).json()["added"][0]["id"]
+    # No .srt was produced.
+    assert client.get(f"/api/job/{job_id}/download", params={"fmt": "srt"}).status_code == 404
+
+
+def test_download_bad_format_400(client: TestClient) -> None:
+    assert client.get("/api/job/1/download", params={"fmt": "exe"}).status_code == 400
+
+
 def test_job_retry_unknown_id_returns_ok_false(client: TestClient) -> None:
     resp = client.post("/api/job", json={"id": 999, "action": "retry"})
     assert resp.status_code == 200
