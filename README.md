@@ -127,12 +127,16 @@ Logs are written to `.noctra_logs/`.
 
 ### Releasing
 
-1. Bump the version in `pyproject.toml` and `src/noctra/__init__.py`, add a
-   `## [x.y.z]` section to `CHANGELOG.md`, and commit.
-2. Run `make release`. It validates the tree, runs `make check`, then tags
-   `vx.y.z` and pushes it.
-3. Pushing the tag triggers CI to build & push the Docker image to GHCR and to
-   create the GitHub Release from the matching CHANGELOG section.
+`make release` cuts the **next minor version automatically** — no manual version
+edits. From a clean `main` it:
+
+1. bumps the version to `X.(Y+1).0` in `pyproject.toml` + `src/noctra/__init__.py`;
+2. regenerates the `CHANGELOG.md` section from the commit subjects since the last tag;
+3. runs `make check`, then commits, tags `vX.(Y+1).0` and pushes.
+
+Pushing the tag triggers CI to build & push the multi-arch Docker image to GHCR
+and to create the GitHub Release from that CHANGELOG section. Preview first with
+`make release-dry`.
 
 ### Frontend
 
