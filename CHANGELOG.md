@@ -4,6 +4,23 @@ All notable changes to Noctra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] — 2026-06-28
+
+UI-focused release: results access, a tabbed layout, in-app settings and polish.
+
+### Added
+- **Tabbed layout** — Queue / History / Settings.
+- **Download transcripts** from the UI — `.txt` / `.srt` / `.vtt` pills on finished
+  jobs (`GET /api/job/{id}/download`).
+- **History tab** listing finished jobs (newest first) with download links.
+- **Settings tab** — edit the default model / language / output formats, persisted
+  to `.noctra/settings.json` (`GET` / `PUT /api/settings`); device and compute type
+  are shown read-only.
+- Toast notifications (success / error) and subtle fade-up animations.
+
+### Changed
+- Published Docker images are now multi-arch (`linux/amd64` + `linux/arm64`).
+
 ## [0.3.0] — 2026-06-28
 
 Feature-complete release: the full roadmap (modular core → FastAPI → SQLite →
@@ -55,4 +72,5 @@ Reliability and modern stack (roadmap phases 0–4 + early Docker).
 Initial prototype — a single-file `http.server` backend with vanilla-JS UI and
 in-memory queue.
 
+[0.4.0]: https://github.com/alchemmist/noctra/releases/tag/v0.4.0
 [0.3.0]: https://github.com/alchemmist/noctra/releases/tag/v0.3.0

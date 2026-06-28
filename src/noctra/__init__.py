@@ -1,3 +1,3 @@
 """Noctra — local sequential audio transcription queue with a web UI."""
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
